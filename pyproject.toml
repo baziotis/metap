@@ -18,5 +18,5 @@ keywords = ["meta-programming"]
 Homepage = "https://github.com/baziotis/metap"
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "astor>=0.8.1"]
 build-backend = "setuptools.build_meta"
