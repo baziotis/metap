@@ -17,7 +17,7 @@ def break_func(fname):
   mp.log_breaks()
   mp.dump()
 
-def retifnn_func(fname):
+def retif_func(fname):
   mp = metap.MetaP(filename=fname)
   mp.compile()
   mp.dump()
@@ -153,7 +153,45 @@ def main(xs):
       return _metap_ret
 """
     
-    out = boiler(src, retifnn_func)
+    out = boiler(src, retif_func)
+    self.assertEqual(out, expect)
+    
+
+
+class RetIfn(unittest.TestCase):
+  def test_simple(self):
+    src = \
+"""
+def foo(ns):
+  for n in ns:
+    __ret_ifn(helper(n))
+  return None
+
+def main(xs):
+  for x in xs:
+    __ret_ifn(foo(x))
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(ns):
+  for n in ns:
+    _metap_ret = helper(n)
+    if _metap_ret is None:
+      return None
+  return None
+
+
+def main(xs):
+  for x in xs:
+    _metap_ret = foo(x)
+    if _metap_ret is None:
+      return None
+"""
+    
+    out = boiler(src, retif_func)
     self.assertEqual(out, expect)
 
 if __name__ == '__main__':

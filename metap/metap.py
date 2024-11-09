@@ -87,7 +87,7 @@ class BreakContTransformer(ast.NodeTransformer):
     else:
       return node
 
-class RetIfnnTransformer(ast.NodeTransformer):
+class RetTransformer(ast.NodeTransformer):
   def visit_Expr(self, e):
     if not isinstance(e.value, ast.Call):
       return e
@@ -95,9 +95,11 @@ class RetIfnnTransformer(ast.NodeTransformer):
     func = call.func
     if not isinstance(func, ast.Name):
       return e
-    if func.id != '__ret_ifnn':
-      return e
     
+    ret_funcs = ['__ret_ifnn', '__ret_ifn']
+    if func.id not in ret_funcs:
+      return e
+
     assert len(call.args) == 1
     assert len(call.keywords) == 0
 
@@ -107,13 +109,22 @@ class RetIfnnTransformer(ast.NodeTransformer):
       targets=[var],
       value=orig_val
     )
-    if_ = ast.If(
-      test=ast.Compare(left=var, ops=[ast.IsNot()],
-                       comparators=[ast.Constant(value=None)]),
-      body=[ast.Return(value=var)],
-      orelse=[]
-    )
     
+    if func.id == '__ret_ifnn':
+      if_ = ast.If(
+        test=ast.Compare(left=var, ops=[ast.IsNot()],
+                        comparators=[ast.Constant(value=None)]),
+        body=[ast.Return(value=var)],
+        orelse=[]
+      )
+    else:
+      if_ = ast.If(
+        test=ast.Compare(left=var, ops=[ast.Is()],
+                        comparators=[ast.Constant(value=None)]),
+        body=[ast.Return(value=ast.Constant(value=None))],
+        orelse=[]
+      )
+      
     return [asgn, if_]
 
 class MetaP:
@@ -138,7 +149,7 @@ class MetaP:
   # Handles anything that is required to be transformed for the code to run
   # (i.e., any code that uses metap features)
   def compile(self):
-    transformer = RetIfnnTransformer()
+    transformer = RetTransformer()
     transformer.visit(self.ast)
 
   def dump(self, filename=None):
