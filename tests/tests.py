@@ -17,6 +17,11 @@ def break_func(fname):
   mp.log_breaks()
   mp.dump()
 
+def retifnn_func(fname):
+  mp = metap.MetaP(filename=fname)
+  mp.compile()
+  mp.dump()
+
 
 def boiler(src, mid_func):
   fname = 'test.py'
@@ -87,9 +92,8 @@ for i in range(10):
 """import metap
 for i in range(10):
   if i == 3:
-    if True:
-      print('metap::Continue(ln=4)')
-      continue
+    print('metap::Continue(ln=4)')
+    continue
 """
     
     out = boiler(src, cont_func)
@@ -107,12 +111,49 @@ for i in range(10):
 """import metap
 for i in range(10):
   if i == 3:
-    if True:
-      print('metap::Break(ln=4)')
-      break
+    print('metap::Break(ln=4)')
+    break
 """
     
     out = boiler(src, break_func)
+    self.assertEqual(out, expect)
+
+
+
+class RetIfnn(unittest.TestCase):
+  def test_simple(self):
+    src = \
+"""
+def foo(ns):
+  for n in ns:
+    __ret_ifnn(helper(n))
+  return None
+
+def main(xs):
+  for x in xs:
+    __ret_ifnn(foo(x))
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(ns):
+  for n in ns:
+    _metap_ret = helper(n)
+    if _metap_ret is not None:
+      return _metap_ret
+  return None
+
+
+def main(xs):
+  for x in xs:
+    _metap_ret = foo(x)
+    if _metap_ret is not None:
+      return _metap_ret
+"""
+    
+    out = boiler(src, retifnn_func)
     self.assertEqual(out, expect)
 
 if __name__ == '__main__':

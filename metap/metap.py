@@ -1,11 +1,7 @@
 import ast, astor
 import os
 
-# print(astor.dump_tree(ast.parse("""
-# if True:
-#   print('a')
-#   break
-# """)))
+
 
 def log_ret(e, log_info):
   print(log_info)
@@ -64,16 +60,6 @@ def break_cont(cur_node, kind):
 
   out_log = fmt_log_info(log_info)
 
-  # Here, we can't use the same trick as with returns (e.g., we can't have
-  # `break foo()`). The intuitive solution is to insert a `print()` before the
-  # return. But, then would need to deal with "where is the break nested
-  # into?" and also we would mess with the nodestack of the TreeWalk. So,
-  # instead we'll introduce a fake block with `if` like:
-  #   if True:
-  #     print(log)
-  #     break
-
-
   print_before = ast.Expr(
     value=ast.Call(
       func=ast.Name(id="print"),
@@ -82,31 +68,53 @@ def break_cont(cur_node, kind):
     )
   )
   
-  the_if = ast.If(
-    test=ast.Constant(value=True),
-    body=[print_before, cur_node],
-    orelse=[]
-  )
+  return [print_before, cur_node]
 
-  return the_if
-
-class BreakContWalker(astor.TreeWalk):
+class BreakContTransformer(ast.NodeTransformer):
   def __init__(self, kind):
-    astor.TreeWalk.__init__(self)
+    ast.NodeTransformer.__init__(self)
     self.kind = kind
 
-  def post_Continue(self):
+  def visit_Continue(self, node):
     if self.kind == "Continue":
-      self.replace(break_cont(self.cur_node, self.kind))
+      return break_cont(node, self.kind)
     else:
-      pass
+      return node
 
-  def post_Break(self):
+  def visit_Break(self, node):
     if self.kind == "Break":
-      self.replace(break_cont(self.cur_node, self.kind))
+      return break_cont(node, self.kind)
     else:
-      pass
+      return node
+
+class RetIfnnTransformer(ast.NodeTransformer):
+  def visit_Expr(self, e):
+    if not isinstance(e.value, ast.Call):
+      return e
+    call = e.value
+    func = call.func
+    if not isinstance(func, ast.Name):
+      return e
+    if func.id != '__ret_ifnn':
+      return e
     
+    assert len(call.args) == 1
+    assert len(call.keywords) == 0
+
+    orig_val = call.args[0]
+    var = ast.Name(id='_metap_ret')
+    asgn = ast.Assign(
+      targets=[var],
+      value=orig_val
+    )
+    if_ = ast.If(
+      test=ast.Compare(left=var, ops=[ast.IsNot()],
+                       comparators=[ast.Constant(value=None)]),
+      body=[ast.Return(value=var)],
+      orelse=[]
+    )
+    
+    return [asgn, if_]
 
 class MetaP:
   def __init__(self, filename) -> None:
@@ -120,12 +128,18 @@ class MetaP:
     walker.walk(self.ast)
 
   def log_breaks(self):
-    walker = BreakContWalker("Break")
-    walker.walk(self.ast)
+    transformer = BreakContTransformer("Break")
+    transformer.visit(self.ast)
   
   def log_continues(self):
-    walker = BreakContWalker("Continue")
-    walker.walk(self.ast)
+    transformer = BreakContTransformer("Continue")
+    transformer.visit(self.ast)
+    
+  # Handles anything that is required to be transformed for the code to run
+  # (i.e., any code that uses metap features)
+  def compile(self):
+    transformer = RetIfnnTransformer()
+    transformer.visit(self.ast)
 
   def dump(self, filename=None):
     if not filename:
