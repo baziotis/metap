@@ -23,16 +23,36 @@ def fmt_log_info(log_info):
   res += main
   return res
 
+def in_range(lineno, range):
+  in_r = False
+  for r in range:
+    if isinstance(r, int) and lineno == r:
+      in_r = True
+      break
+    elif isinstance(r, tuple) and r[0] <= lineno <= r[1]:
+      in_r = True
+      break
+  ### END FOR ###
+  return in_r
+
 
 class LogReturnWalker(astor.TreeWalk):
-  def __init__(self, include_fname=False, fname=""):
+  def __init__(self, include_fname=False, fname="", range=[]):
     astor.TreeWalk.__init__(self)
     self.stef_include_fname = include_fname
     self.stef_fname = fname
+    self.stef_range = range
 
   def post_Return(self):
     assert hasattr(self.cur_node, 'lineno')
     lineno = self.cur_node.lineno
+    in_r = True
+    if self.stef_range != []:
+      in_r = in_range(lineno, self.stef_range)
+
+    if not in_r:
+      return
+          
     log_info = {"name": "Return"}
     log_info["ln"] = lineno
 
@@ -92,9 +112,20 @@ class BreakContTransformer(ast.NodeTransformer):
       return node
 
 class CallSiteTransformer(ast.NodeTransformer):
+  def __init__(self, range=[]):
+    ast.NodeTransformer.__init__(self)
+    self.range = range
+
   def visit_Call(self, node):
     assert hasattr(node, 'lineno')
     lineno = node.lineno
+
+    in_r = True
+    if self.range != []:
+      in_r = in_range(lineno, self.range)
+
+    if not in_r:
+      return node
 
     log_info = {"name": "Call"}
     log_info["ln"] = lineno
@@ -157,9 +188,10 @@ class MetaP:
     with open(filename, 'r') as fp:
       self.ast = ast.parse(fp.read())
 
-  def log_returns(self, include_fname=False):
+  def log_returns(self, include_fname=False, range=[]):
     walker = LogReturnWalker(include_fname=include_fname,
-                             fname=os.path.basename(self.filename))
+                             fname=os.path.basename(self.filename),
+                             range=range)
     walker.walk(self.ast)
 
   def log_breaks(self):
@@ -170,8 +202,8 @@ class MetaP:
     transformer = BreakContTransformer("Continue")
     transformer.visit(self.ast)
   
-  def log_calls(self):
-    transformer = CallSiteTransformer()
+  def log_calls(self, range=[]):
+    transformer = CallSiteTransformer(range=range)
     transformer.visit(self.ast)
     
   # Handles anything that is required to be transformed for the code to run

@@ -90,9 +90,48 @@ def foo():
 
 
 
+  def test_range(self):
+    src = \
+"""
+def foo():
+  return
+
+def bar():
+  return 1
+
+def baz():
+  return 2
+"""
+
+    expect = \
+"""import metap
+
+
+def foo():
+  return
+
+
+def bar():
+  return metap.log_ret(1, 'metap::Return(ln=6)')
+
+
+def baz():
+  return 2
+"""
+
+    def ret_range(fname):
+      mp = metap.MetaP(filename=fname)
+      mp.log_returns(range=[(5, 7)])
+      mp.dump()
+
+    out = boiler(src, ret_range)
+    self.assertEqual(out, expect)
+
+
+
 
 class LogCall(unittest.TestCase):
-  def test_val(self):
+  def test_simple(self):
     src = \
 """
 def add_one(num):
@@ -117,6 +156,41 @@ for x in xs:
 """
     
     out = boiler(src, log_call)
+    self.assertEqual(out, expect)
+
+
+
+  def test_range(self):
+    src = \
+"""
+for x in xs:
+  if x:
+    add_one(n)
+
+  if y:
+    add_two(n)
+
+if z:
+  add_three()
+"""
+
+    expect = \
+"""import metap
+for x in xs:
+  if x:
+    metap.log_call(add_one(n), 'metap::Call(ln=4,call=add_one(n))')
+  if y:
+    add_two(n)
+if z:
+  metap.log_call(add_three(), 'metap::Call(ln=10,call=add_three())')
+"""
+
+    def call_range(fname):
+      mp = metap.MetaP(filename=fname)
+      mp.log_calls(range=[(3, 5), 10])
+      mp.dump()
+    
+    out = boiler(src, call_range)
     self.assertEqual(out, expect)
 
 
