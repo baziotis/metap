@@ -109,19 +109,21 @@ class RetTransformer(ast.NodeTransformer):
       targets=[var],
       value=orig_val
     )
+
+    lineno = call.lineno
     
     if func.id == '__ret_ifnn':
       if_ = ast.If(
         test=ast.Compare(left=var, ops=[ast.IsNot()],
                         comparators=[ast.Constant(value=None)]),
-        body=[ast.Return(value=var)],
+        body=[ast.Return(value=var, lineno=lineno)],
         orelse=[]
       )
     else:
       if_ = ast.If(
         test=ast.Compare(left=var, ops=[ast.Is()],
                         comparators=[ast.Constant(value=None)]),
-        body=[ast.Return(value=ast.Constant(value=None))],
+        body=[ast.Return(value=ast.Constant(value=None), lineno=lineno)],
         orelse=[]
       )
       

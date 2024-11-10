@@ -21,6 +21,12 @@ def retif_func(fname):
   mp = metap.MetaP(filename=fname)
   mp.compile()
   mp.dump()
+  
+def compose_retif_and_logret(fname):
+  mp = metap.MetaP(filename=fname)
+  mp.compile()
+  mp.log_returns()
+  mp.dump()
 
 
 def boiler(src, mid_func):
@@ -192,6 +198,30 @@ def main(xs):
 """
     
     out = boiler(src, retif_func)
+    self.assertEqual(out, expect)
+
+
+class ComposeRetIfAndLogRet(unittest.TestCase):
+  def test_simple(self):
+    src = \
+"""
+def foo(ns):
+  for n in ns:
+    __ret_ifnn(helper(n))
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(ns):
+  for n in ns:
+    _metap_ret = helper(n)
+    if _metap_ret is not None:
+      return metap.log_ret(_metap_ret, 'metap::Return(ln=4)')
+"""
+    
+    out = boiler(src, compose_retif_and_logret)
     self.assertEqual(out, expect)
 
 if __name__ == '__main__':
