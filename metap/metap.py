@@ -7,9 +7,9 @@ def log_ret(e, log_info):
   print(log_info)
   return e
 
-def log_call(e, log_info):
+def log_call(lam, log_info):
   print(log_info)
-  return e
+  return lam()
 
 def fmt_log_info(log_info):
   res = "metap::"
@@ -24,6 +24,8 @@ def fmt_log_info(log_info):
   return res
 
 def in_range(lineno, range):
+  if len(range) == 0:
+    return True
   in_r = False
   for r in range:
     if isinstance(r, int) and lineno == r:
@@ -46,11 +48,8 @@ class LogReturnWalker(astor.TreeWalk):
   def post_Return(self):
     assert hasattr(self.cur_node, 'lineno')
     lineno = self.cur_node.lineno
-    in_r = True
-    if self.stef_range != []:
-      in_r = in_range(lineno, self.stef_range)
 
-    if not in_r:
+    if not in_range(lineno, self.stef_range):
       return
           
     log_info = {"name": "Return"}
@@ -120,11 +119,7 @@ class CallSiteTransformer(ast.NodeTransformer):
     assert hasattr(node, 'lineno')
     lineno = node.lineno
 
-    in_r = True
-    if self.range != []:
-      in_r = in_range(lineno, self.range)
-
-    if not in_r:
+    if not in_range(lineno, self.range):
       return node
 
     log_info = {"name": "Call"}
@@ -133,9 +128,26 @@ class CallSiteTransformer(ast.NodeTransformer):
 
     out_log = fmt_log_info(log_info)
     
+    # Here we have to do some gymnastics. The problem is that we want the log
+    # info to be printed _before_ the call happens. So, we can't just pass the
+    # original node as an argument to log_call() because it will be evaluated
+    # before log_call() is called, and thus before log_call() prints the info.
+    # So, we wrap the original call in a lambda that we call inside log_call()
+    # after we print the info.
+    
+    lambda_args = ast.arguments(
+      args=[],
+      defaults=[],
+      kw_defaults=[],
+      kwarg=None,
+      kwonlyargs=[],
+      posonlyargs=[],
+      vararg=None
+    )
+    
     new_node = ast.Call(
         func=ast.Attribute(value=ast.Name(id="metap"), attr='log_call'),
-        args=[node, ast.Constant(value=out_log)],
+        args=[ast.Lambda(args=lambda_args, body=node), ast.Constant(value=out_log)],
         keywords=[]
       )
     return new_node

@@ -152,7 +152,8 @@ def add_one(num):
 
 for x in xs:
   if x:
-    ret = metap.log_call(add_one(n), 'metap::Call(ln=7,call=add_one(n))')
+    ret = metap.log_call(lambda : add_one(n),
+        'metap::Call(ln=7,call=add_one(n))')
 """
     
     out = boiler(src, log_call)
@@ -178,11 +179,11 @@ if z:
 """import metap
 for x in xs:
   if x:
-    metap.log_call(add_one(n), 'metap::Call(ln=4,call=add_one(n))')
+    metap.log_call(lambda : add_one(n), 'metap::Call(ln=4,call=add_one(n))')
   if y:
     add_two(n)
 if z:
-  metap.log_call(add_three(), 'metap::Call(ln=10,call=add_three())')
+  metap.log_call(lambda : add_three(), 'metap::Call(ln=10,call=add_three())')
 """
 
     def call_range(fname):
@@ -334,6 +335,34 @@ def foo(ns):
 """
     
     out = boiler(src, compose_retif_and_logret)
+    self.assertEqual(out, expect)
+    
+
+
+class ComposeLogRetAndLogCall(unittest.TestCase):
+  def test_simple(self):
+    src = \
+"""
+def foo():
+  return bar()
+"""
+
+    expect = \
+"""import metap
+
+
+def foo():
+  return metap.log_ret(metap.log_call(lambda : bar(),
+      'metap::Call(ln=3,call=bar())'), 'metap::Return(ln=3)')
+"""
+
+    def compose_logret_and_logcall(fname):
+      mp = metap.MetaP(filename=fname)
+      mp.log_calls()
+      mp.log_returns()
+      mp.dump()      
+
+    out = boiler(src, compose_logret_and_logcall)
     self.assertEqual(out, expect)
 
 if __name__ == '__main__':
