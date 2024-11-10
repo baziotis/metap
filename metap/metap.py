@@ -7,6 +7,10 @@ def log_ret(e, log_info):
   print(log_info)
   return e
 
+def log_call(e, log_info):
+  print(log_info)
+  return e
+
 def fmt_log_info(log_info):
   res = "metap::"
   special_keys = ["name", "fname"]
@@ -87,6 +91,24 @@ class BreakContTransformer(ast.NodeTransformer):
     else:
       return node
 
+class CallSiteTransformer(ast.NodeTransformer):
+  def visit_Call(self, node):
+    assert hasattr(node, 'lineno')
+    lineno = node.lineno
+
+    log_info = {"name": "Call"}
+    log_info["ln"] = lineno
+    log_info["call"] = astor.to_source(node).strip()
+
+    out_log = fmt_log_info(log_info)
+    
+    new_node = ast.Call(
+        func=ast.Attribute(value=ast.Name(id="metap"), attr='log_call'),
+        args=[node, ast.Constant(value=out_log)],
+        keywords=[]
+      )
+    return new_node
+
 class RetTransformer(ast.NodeTransformer):
   def visit_Expr(self, e):
     if not isinstance(e.value, ast.Call):
@@ -146,6 +168,10 @@ class MetaP:
   
   def log_continues(self):
     transformer = BreakContTransformer("Continue")
+    transformer.visit(self.ast)
+  
+  def log_calls(self):
+    transformer = CallSiteTransformer()
     transformer.visit(self.ast)
     
   # Handles anything that is required to be transformed for the code to run

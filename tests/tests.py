@@ -7,6 +7,11 @@ def ret_func(fname):
   mp.log_returns()
   mp.dump()
 
+def log_call(fname):
+  mp = metap.MetaP(filename=fname)
+  mp.log_calls()
+  mp.dump()
+
 def cont_func(fname):
   mp = metap.MetaP(filename=fname)
   mp.log_continues()
@@ -82,6 +87,39 @@ def foo():
     
     out = boiler(src, ret_func)
     self.assertEqual(out, expect)
+
+
+
+
+class LogCall(unittest.TestCase):
+  def test_val(self):
+    src = \
+"""
+def add_one(num):
+  return num + 1
+  
+for x in xs:
+  if x:
+    ret = add_one(n)
+"""
+
+    expect = \
+"""import metap
+
+
+def add_one(num):
+  return num + 1
+
+
+for x in xs:
+  if x:
+    ret = metap.log_call(add_one(n), 'metap::Call(ln=7,call=add_one(n))')
+"""
+    
+    out = boiler(src, log_call)
+    self.assertEqual(out, expect)
+
+
 
 
 
