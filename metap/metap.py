@@ -18,8 +18,7 @@ def cvar(cond, globs, var, ift_e):
   return cond
 
 def cvar2(cond, globs, var):
-  if cond:
-    globs[var] = cond
+  globs[var] = cond
   return cond
 
 ### END HELPERS ###
@@ -177,7 +176,8 @@ def globals_call():
 class CVarTransformer(ast.NodeTransformer):
   def __init__(self):
     ast.NodeTransformer.__init__(self)
-    self.vars = []
+    self.if_vars = []
+    self.uncond_vars = []
 
   def visit_Call(self, call: ast.Call):
     if not isinstance(call.func, ast.Name):
@@ -194,9 +194,9 @@ class CVarTransformer(ast.NodeTransformer):
     assert isinstance(var, ast.Name)
     var_name = var.id
     our_name = ast.Constant(value="__metap_"+var_name)
-    self.vars.append(var.id)
 
     if len(args) == 3:
+      self.if_vars.append(var.id)
       ift_e = args[2] if len(args) == 3 else cond
       new_call = ast.Call(
           func=ast.Attribute(value=ast.Name(id="metap"), attr='cvar'),
@@ -204,6 +204,7 @@ class CVarTransformer(ast.NodeTransformer):
           keywords=[]
         )
     else:
+      self.uncond_vars.append(var.id)
       new_call = ast.Call(
           func=ast.Attribute(value=ast.Name(id="metap"), attr='cvar2'),
           args=[cond, globals_call(), our_name],
@@ -316,12 +317,10 @@ class NecessaryTransformer(ast.NodeTransformer):
     # any `if` depth and with `else` (which also means it works with `elif`
     # since that is canonicalized as `if-else`).
 
-    # TODO: This means that the semantics is that the variable will be assigned
-    # only if we get inside the `if`. I don't have enough usage code to know if
-    # that's good. We may want to assign it anyway. That wouldn't be difficult
-    # since we'd just add the assignment in the top of the `else` (and if
-    # there's no `else`, we introduce one).
+    # Note that in the case of cvar2(), we assign to the variable whether we get
+    # into the `if` or not. We just add the assignment of both the `if` and the `else`.
     
+    # --- Alternative Solution ---
     # Note that obvious solution is akin to how a standard compiler would
     # translate `if`s, which is to "unroll" the conditions, so that this:
     #   if _cvar(x == True, z, 1) and _cvar(y == True, w, 10):
@@ -353,11 +352,12 @@ class NecessaryTransformer(ast.NodeTransformer):
 
     cvar_tr = CVarTransformer()
     if_test = cvar_tr.visit(if_.test)
-    vars = cvar_tr.vars
+    if_vars = cvar_tr.if_vars
+    uncond_vars = cvar_tr.uncond_vars
     
     var_ifs = []
-    var_set = list(set(vars))
-    for var in var_set:
+    if_var_set = list(set(if_vars))
+    for var in if_var_set:
       our_var = ast.Constant(value='__metap_'+var)
       glob_look = ast.Subscript(value=globals_call(),
                                 slice=our_var)
@@ -374,10 +374,23 @@ class NecessaryTransformer(ast.NodeTransformer):
       )
       var_ifs.append(var_if)
     ### END FOR ###
+    
+    uncond_var_asgns = []
+    uncond_var_set = list(set(uncond_vars))
+    for var in uncond_var_set:
+      our_var = ast.Constant(value='__metap_'+var)
+      glob_look = ast.Subscript(value=globals_call(),
+                                slice=our_var)
+      asgn = ast.Assign(
+        targets=[ast.Name(id=var)],
+        value = glob_look
+      )
+      uncond_var_asgns.append(asgn)
+    ### END FOR ###
 
     if_.test = if_test
-    if_.body = var_ifs + new_body
-    if_.orelse = new_orelse
+    if_.body = uncond_var_asgns + var_ifs + new_body
+    if_.orelse = uncond_var_asgns + new_orelse
 
     return if_
     

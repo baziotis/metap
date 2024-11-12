@@ -1,7 +1,6 @@
 import pytest
 import os
 import types
-import metap
 
 def exec_code(code, mod):
   # Note: Exec's update the module's dict
@@ -316,9 +315,6 @@ if _cvar(line.startswith('# '), c):
   del mod
 
 
-# TODO: We may want to change the semantics so that for cvar2 it's assigned no
-# matter whether we get into the if or not. That is simple. If it has an else,
-# add the assignment in the else. Otherwise, introduce an else and add it.
 def test_cvar_def2():
   mprogram = """
 line = "## test"
@@ -326,12 +322,55 @@ if _cvar(line.startswith('# '), c):
   x = c
 
 y = 'x' in globals()
+z = c
 """
 
   mod = boiler(mprogram, CVAR_CLIENT)
 
-  actual = mod.__dict__['y']
-  expected = False
+  y_act = mod.__dict__['y']
+  z_act = mod.__dict__['z']
+  
+  y_exp = False
+  z_exp = False
 
-  assert actual == expected
+  assert y_act == y_exp
+  assert z_act == z_exp
+  del mod
+
+def test_cvar_def3():
+  mprogram = """
+import pandas as pd
+
+def foo(n):
+  if n == 2:
+    return {'t': 2}
+  return None
+
+
+def bar():
+  x = 2
+  if _cvar(foo(x), ret):
+    return ret
+  return None
+
+def baz():
+  x = 3
+  if _cvar(foo(x), ret):
+    return ret
+  return None
+
+y = bar()
+z = baz()
+"""
+
+  mod = boiler(mprogram, CVAR_CLIENT)
+
+  y_act = mod.__dict__['y']
+  z_act = mod.__dict__['z']
+
+  y_exp = {'t': 2}
+  z_exp = None
+
+  assert y_act == y_exp
+  assert z_act == z_exp
   del mod
