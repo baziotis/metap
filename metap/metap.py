@@ -2,6 +2,7 @@ import ast, astor
 import os
 
 
+### HELPERS called from the generated program ###
 
 def log_ret(e, log_info):
   print(log_info)
@@ -10,6 +11,19 @@ def log_ret(e, log_info):
 def log_call(lam, log_info):
   print(log_info)
   return lam()
+
+def cvar(cond, globs, var, ift_e):
+  if cond:
+    globs[var] = ift_e
+  return cond
+
+def cvar2(cond, globs, var):
+  if cond:
+    globs[var] = cond
+  return cond
+
+### END HELPERS ###
+
 
 def fmt_log_info(log_info):
   res = "metap::"
@@ -152,7 +166,53 @@ class CallSiteTransformer(ast.NodeTransformer):
       )
     return new_node
 
-class RetTransformer(ast.NodeTransformer):
+def globals_call():
+  call = ast.Call(
+    func=ast.Name(id="globals"),
+    args=[],
+    keywords=[]
+  )
+  return call
+
+class CVarTransformer(ast.NodeTransformer):
+  def __init__(self):
+    ast.NodeTransformer.__init__(self)
+    self.vars = []
+
+  def visit_Call(self, call: ast.Call):
+    if not isinstance(call.func, ast.Name):
+      return call
+    
+    if call.func.id != '_cvar':
+      return call
+    
+    args = call.args
+    assert 2 <= len(args) <= 3
+    cond = args[0]
+    var = args[1]
+    
+    assert isinstance(var, ast.Name)
+    var_name = var.id
+    our_name = ast.Constant(value="__metap_"+var_name)
+    self.vars.append(var.id)
+
+    if len(args) == 3:
+      ift_e = args[2] if len(args) == 3 else cond
+      new_call = ast.Call(
+          func=ast.Attribute(value=ast.Name(id="metap"), attr='cvar'),
+          args=[cond, globals_call(), our_name, ift_e],
+          keywords=[]
+        )
+    else:
+      new_call = ast.Call(
+          func=ast.Attribute(value=ast.Name(id="metap"), attr='cvar2'),
+          args=[cond, globals_call(), our_name],
+          keywords=[]
+        )
+    return new_call
+
+class NecessaryTransformer(ast.NodeTransformer):
+  # __ret_ifnn and __ret_ifn
   def visit_Expr(self, e):
     if not isinstance(e.value, ast.Call):
       return e
@@ -193,6 +253,134 @@ class RetTransformer(ast.NodeTransformer):
       )
       
     return [asgn, if_]
+  
+  # Verifier that we have actually changed every call
+  def visit_Call(self, call):
+    if not isinstance(call.func, ast.Name):
+      return call
+    
+    funcs = ['__ret_ifn', '__ret_ifnn', '_cvar']
+    if call.func.id in funcs:
+      assert False
+    
+    return call
+
+  # _cvar
+  def visit_If(self, if_: ast.If):
+    # This is tricky because we need to replace an expression with a series of
+    # statements. For example, we would like to replace this:
+
+    #   if _cvar(x == True, y, 1):
+    #     print(y)
+    # with:
+    #   if (
+    #       cond = x == True
+    #       if x == True:
+    #         y = 1
+    #       return cond
+    #   ):
+    #     print(y)
+
+    # Obviously, we can't do such trickery in Python. The obvious solution is to
+    # offload the work to some function:
+
+    #   def cvar(cond, var, ift_e):
+    #     if cond:
+    #       var = ift_e
+    #     return cond
+    #
+    #   if cvar(x == True, y, 1):
+    #     print(y)
+
+    # The problem, however, is that cvar() doesn't have access to `y`. If `y` is
+    # a global in the same module, then it's fine because it can modify it. But,
+    # `y` may be a function local, or it may be in another module (which is most
+    # certainly the case given that cvar() is metap's code but the calling code
+    # is not).
+    
+    # --- Current solution ---
+    #
+    # My solution is a bit unconventional but it seems robust and relatively
+    # easy to code. Inside the function, instead of assigning to the variable we
+    # want directly, which we can't do, we introduce another global variable.
+    # For that, we need to pass globals() in the call-site. Then, inside the
+    # `if`, we check if our variable is defined and if so, we copy its value to
+    # the target variable. So, we end up with sth like:
+    #  if metap.cvar(x == True, globals(), '__metap_y', 1):
+    #    if '__metap_y' in globals():
+    #      y = globals()['__metap_y']
+    #    print(y)
+    
+    # In general, inside the top-level `if`, we introduce as many `if`s as the
+    # variables used in cvar()'s inside the condition. This seems to work for
+    # any `if` depth and with `else` (which also means it works with `elif`
+    # since that is canonicalized as `if-else`).
+
+    # TODO: This means that the semantics is that the variable will be assigned
+    # only if we get inside the `if`. I don't have enough usage code to know if
+    # that's good. We may want to assign it anyway. That wouldn't be difficult
+    # since we'd just add the assignment in the top of the `else` (and if
+    # there's no `else`, we introduce one).
+    
+    # Note that obvious solution is akin to how a standard compiler would
+    # translate `if`s, which is to "unroll" the conditions, so that this:
+    #   if _cvar(x == True, z, 1) and _cvar(y == True, w, 10):
+    # becomes:
+      # cond1 = False
+      # if x == True:
+      #   z = 1
+      #   cond1 = True
+      #   if y == True:
+      #     w = 10
+      #     cond2 = True
+      # if cond1 and cond2:
+      #   print(hlvl)
+    
+    # But this is very complex, because we essentially have to implement
+    # short-circuiting, which means we need different handling for `and` and
+    # `or`. And in general, it needs much more gymnastics.
+
+    new_body = []
+    new_orelse = []
+    # WARNING: We call visit() and _not_ generic_visit(), because the latter
+    # will visit the children but not the node itself. So, in an `if-elif`, in
+    # which case the `if`'s orelse has an if inside, the innermost `if` will not
+    # be visited.
+    for b in if_.body:
+      new_body.append(self.visit(b))
+    for s in if_.orelse:
+      new_orelse.append(self.visit(s))
+
+    cvar_tr = CVarTransformer()
+    if_test = cvar_tr.visit(if_.test)
+    vars = cvar_tr.vars
+    
+    var_ifs = []
+    var_set = list(set(vars))
+    for var in var_set:
+      our_var = ast.Constant(value='__metap_'+var)
+      glob_look = ast.Subscript(value=globals_call(),
+                                slice=our_var)
+      in_glob = ast.Compare(left=our_var, ops=[ast.In()],
+                            comparators=[globals_call()])
+      asgn = ast.Assign(
+        targets=[ast.Name(id=var)],
+        value = glob_look
+      )
+      var_if = ast.If(
+        test=in_glob,
+        body=[asgn],
+        orelse=[]
+      )
+      var_ifs.append(var_if)
+    ### END FOR ###
+
+    if_.test = if_test
+    if_.body = var_ifs + new_body
+    if_.orelse = new_orelse
+
+    return if_
+    
 
 class MetaP:
   def __init__(self, filename) -> None:
@@ -221,7 +409,7 @@ class MetaP:
   # Handles anything that is required to be transformed for the code to run
   # (i.e., any code that uses metap features)
   def compile(self):
-    transformer = RetTransformer()
+    transformer = NecessaryTransformer()
     transformer.visit(self.ast)
 
   def dump(self, filename=None):

@@ -333,7 +333,7 @@ def foo(ns):
     if _metap_ret is not None:
       return metap.log_ret(_metap_ret, 'metap::Return(ln=4)')
 """
-    
+
     out = boiler(src, compose_retif_and_logret)
     self.assertEqual(out, expect)
     
