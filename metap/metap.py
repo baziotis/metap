@@ -393,7 +393,36 @@ class NecessaryTransformer(ast.NodeTransformer):
     if_.orelse = uncond_var_asgns + new_orelse
 
     return if_
+
+class LogFuncDef(ast.NodeTransformer):
+  def __init__(self, range=[]):
+    ast.NodeTransformer.__init__(self)
+    self.range = range
+
+  def visit_FunctionDef(self, fdef:ast.FunctionDef):
+    assert hasattr(fdef, 'lineno')
+    lineno = fdef.lineno
+
+    if not in_range(lineno, self.range):
+      return fdef
     
+    fname = fdef.name
+    
+    log_info = {"name": "FuncDef"}
+    log_info["ln"] = lineno
+    log_info["fname"] = fname
+
+    out_log = fmt_log_info(log_info)
+    
+    print_call = ast.Call(
+      func=ast.Name(id="print"),
+      args=[ast.Constant(value=out_log)],
+      keywords=[]
+    )
+    e = ast.Expr(value=print_call)
+    fdef.body = [e] + fdef.body
+    return fdef
+
 
 class MetaP:
   def __init__(self, filename) -> None:
@@ -417,6 +446,10 @@ class MetaP:
   
   def log_calls(self, range=[]):
     transformer = CallSiteTransformer(range=range)
+    transformer.visit(self.ast)
+  
+  def log_func_defs(self, range=[]):
+    transformer = LogFuncDef(range=range)
     transformer.visit(self.ast)
     
   # Handles anything that is required to be transformed for the code to run

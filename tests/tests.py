@@ -365,5 +365,59 @@ def foo():
     out = boiler(src, compose_logret_and_logcall)
     self.assertEqual(out, expect)
 
+
+
+class LogFuncDefs(unittest.TestCase):
+  def test_visitor(self):
+    src = \
+"""
+def foo():
+  return 2
+
+class RandomVisitor(ast.NodeVisitor):
+  def visit_Assign(self, asgn:ast.Assign):
+    for t in asgn.targets:
+      self.visit(t)
+    ### END FOR ###
+    self.visit(asgn.value)
+  
+  
+  def visit_BinOp(self, binop:ast.BinOp):
+    self.visit(binop.left)
+"""
+
+    expect = \
+"""import metap
+
+
+def foo():
+  print('metap::foo::FuncDef(ln=2)')
+  return 2
+
+
+class RandomVisitor(ast.NodeVisitor):
+
+  def visit_Assign(self, asgn: ast.Assign):
+    print('metap::visit_Assign::FuncDef(ln=6)')
+    for t in asgn.targets:
+      self.visit(t)
+    self.visit(asgn.value)
+
+  def visit_BinOp(self, binop: ast.BinOp):
+    print('metap::visit_BinOp::FuncDef(ln=13)')
+    self.visit(binop.left)
+"""
+
+    def log_func_def(fname):
+      mp = metap.MetaP(filename=fname)
+      mp.log_func_defs()
+      mp.compile()
+      mp.dump()      
+
+    out = boiler(src, log_func_def)
+    self.assertEqual(out, expect)
+
+
+
 if __name__ == '__main__':
     unittest.main()
