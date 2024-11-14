@@ -391,20 +391,20 @@ class RandomVisitor(ast.NodeVisitor):
 
 
 def foo():
-  print('metap::foo::FuncDef(ln=2)')
+  print('metap::FuncDef(ln=2,func=foo)')
   return 2
 
 
 class RandomVisitor(ast.NodeVisitor):
 
   def visit_Assign(self, asgn: ast.Assign):
-    print('metap::visit_Assign::FuncDef(ln=6)')
+    print('metap::FuncDef(ln=6,func=visit_Assign)')
     for t in asgn.targets:
       self.visit(t)
     self.visit(asgn.value)
 
   def visit_BinOp(self, binop: ast.BinOp):
-    print('metap::visit_BinOp::FuncDef(ln=13)')
+    print('metap::FuncDef(ln=13,func=visit_BinOp)')
     self.visit(binop.left)
 """
 
@@ -415,6 +415,7 @@ class RandomVisitor(ast.NodeVisitor):
       mp.dump()      
 
     out = boiler(src, log_func_def)
+    self.maxDiff = None
     self.assertEqual(out, expect)
 
 

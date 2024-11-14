@@ -410,7 +410,7 @@ class LogFuncDef(ast.NodeTransformer):
     
     log_info = {"name": "FuncDef"}
     log_info["ln"] = lineno
-    log_info["fname"] = fname
+    log_info["func"] = fname
 
     out_log = fmt_log_info(log_info)
     
