@@ -1,6 +1,6 @@
 import ast, astor
 import os
-
+from contextlib import contextmanager
 
 ### HELPERS called from the generated program ###
 
@@ -20,6 +20,21 @@ def cvar(cond, globs, var, ift_e):
 def cvar2(cond, globs, var):
   globs[var] = cond
   return cond
+
+__metap_indent_counter = 0
+
+@contextmanager
+def indent_ctx():
+  global __metap_indent_counter
+  __metap_indent_counter += 1   # Increment on entering
+  try:
+    yield
+  finally:
+    __metap_indent_counter -= 1  # Decrement on exiting
+
+def indent_print():
+  for _ in range(__metap_indent_counter):
+    print("  ", end="")
 
 ### END HELPERS ###
 
@@ -395,9 +410,10 @@ class NecessaryTransformer(ast.NodeTransformer):
     return if_
 
 class LogFuncDef(ast.NodeTransformer):
-  def __init__(self, range=[]):
+  def __init__(self, range=[], indent=False):
     ast.NodeTransformer.__init__(self)
     self.range = range
+    self.indent = indent
 
   def visit_FunctionDef(self, fdef:ast.FunctionDef):
     assert hasattr(fdef, 'lineno')
@@ -413,15 +429,38 @@ class LogFuncDef(ast.NodeTransformer):
     log_info["func"] = fname
 
     out_log = fmt_log_info(log_info)
-    
-    print_call = ast.Call(
+
+    print_log = ast.Call(
       func=ast.Name(id="print"),
       args=[ast.Constant(value=out_log)],
       keywords=[]
     )
-    e = ast.Expr(value=print_call)
-    fdef.body = [e] + fdef.body
-    return fdef
+    print_log_e = ast.Expr(value=print_log)
+
+    if not self.indent:
+      fdef.body = [print_log_e] + fdef.body
+      return fdef
+    else:
+      print_indent = ast.Call(
+        func=ast.Attribute(value=ast.Name(id="metap"), attr='indent_print'),
+        args=[],
+        keywords=[]
+      )
+      print_indent_e = ast.Expr(value=print_indent)
+
+      indent_ctx = ast.Call(
+        func=ast.Attribute(value=ast.Name(id="metap"), attr='indent_ctx'),
+        args=[],
+        keywords=[]
+      )
+      with_ = ast.With(
+        items=[ast.withitem(context_expr=indent_ctx, optional_vars=None)],
+        body=fdef.body
+      )
+      
+      new_body = [print_indent_e, print_log_e, with_]
+      fdef.body = new_body
+      return fdef
 
 
 class MetaP:
@@ -448,8 +487,8 @@ class MetaP:
     transformer = CallSiteTransformer(range=range)
     transformer.visit(self.ast)
   
-  def log_func_defs(self, range=[]):
-    transformer = LogFuncDef(range=range)
+  def log_func_defs(self, range=[], indent=False):
+    transformer = LogFuncDef(range=range, indent=indent)
     transformer.visit(self.ast)
     
   # Handles anything that is required to be transformed for the code to run

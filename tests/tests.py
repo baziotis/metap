@@ -419,6 +419,48 @@ class RandomVisitor(ast.NodeVisitor):
     self.assertEqual(out, expect)
 
 
+  def test_indent(self):
+    src = \
+"""
+def bar():
+  return 2
+
+def foo(n):
+  if n == 2:
+    return None
+  return bar()
+"""
+
+    expect = \
+"""import metap
+
+
+def bar():
+  metap.indent_print()
+  print('metap::FuncDef(ln=2,func=bar)')
+  with metap.indent_ctx():
+    return 2
+
+
+def foo(n):
+  metap.indent_print()
+  print('metap::FuncDef(ln=5,func=foo)')
+  with metap.indent_ctx():
+    if n == 2:
+      return None
+    return bar()
+"""
+
+    def log_func_def2(fname):
+      mp = metap.MetaP(filename=fname)
+      mp.log_func_defs(indent=True)
+      mp.compile()
+      mp.dump()      
+
+    out = boiler(src, log_func_def2)
+    self.maxDiff = None
+    self.assertEqual(out, expect)
+
 
 if __name__ == '__main__':
     unittest.main()
