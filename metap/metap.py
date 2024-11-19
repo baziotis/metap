@@ -102,17 +102,20 @@ class LogReturnWalker(astor.TreeWalk):
     )
     self.replace(new_node)
 
-def get_print(arg:str):
-  assert isinstance(arg, str)
-
+def get_print(arg):
   print_call = ast.Call(
     func=ast.Name(id="print"),
-    args=[ast.Constant(value=arg)],
+    args=[arg],
     keywords=[]
   )
   print_e = ast.Expr(value=print_call)
   
   return print_e
+
+def get_print_str(arg:str):
+  assert isinstance(arg, str)
+
+  return get_print(ast.Constant(value=arg))
 
 def break_cont(cur_node, kind):
   assert hasattr(cur_node, 'lineno')
@@ -123,7 +126,7 @@ def break_cont(cur_node, kind):
 
   out_log = fmt_log_info(log_info)
   
-  print_before = get_print(out_log)
+  print_before = get_print_str(out_log)
   
   return [print_before, cur_node]
 
@@ -456,7 +459,7 @@ class LogFuncDef(ast.NodeTransformer):
 
     out_log = fmt_log_info(log_info)
 
-    print_log_e = get_print(out_log)
+    print_log_e = get_print_str(out_log)
 
     if not self.indent:
       fdef.body = [print_log_e] + fdef.body
@@ -498,8 +501,8 @@ class LogIfs(ast.NodeTransformer):
       new_else.append(self.visit(s))
     ### END FOR ###
     
-    print_then = get_print(out_log_then)
-    print_else = get_print(out_log_else)
+    print_then = get_print_str(out_log_then)
+    print_else = get_print_str(out_log_else)
 
     if not self.indent:
       new_then = [print_then] + new_then
@@ -515,6 +518,121 @@ class LogIfs(ast.NodeTransformer):
       if_.orelse = new_else
     
     return if_
+
+def isinst_call(obj, ty):
+  return ast.Call(
+    func=ast.Name(id="isinstance"),
+    args=[obj, ty],
+    keywords=[]
+  )
+
+def isnone_cond(obj):
+  return ast.Compare(obj, ops=[ast.Is()],
+                     comparators=[ast.Constant(value=None)])
+
+# Generate asserts that `obj` is of type `ann`
+def exp_for_ann(obj, ann):
+  if isinstance(ann, ast.Name):
+    return isinst_call(obj, ann)
+  
+  assert isinstance(ann, ast.Subscript)
+  sub = ann
+  slice = sub.slice
+  cons = sub.value
+  assert isinstance(cons, ast.Name)
+  acceptable_constructors = ['Optional', 'Union', 'Tuple', 'List']
+  assert cons.id in acceptable_constructors
+  if cons.id == 'Optional':
+    is_ty = exp_for_ann(obj, slice)
+    is_none = isnone_cond(obj)
+    or_ = ast.BinOp(left=is_ty, op=ast.Or(), right=is_none)
+    return or_ 
+  elif cons.id == 'Union':
+    assert isinstance(slice, ast.Tuple)
+    elts = slice.elts
+    assert len(elts) == 2
+    l = elts[0]
+    r = elts[1]
+    is_l = exp_for_ann(obj, l)
+    is_r = exp_for_ann(obj, r)
+    or_ = ast.BinOp(left=is_l, op=ast.Or(), right=is_r)
+    return or_
+  elif cons.id == 'Tuple':
+    assert isinstance(slice, ast.Tuple)
+    elts = slice.elts
+    assert len(elts) > 1
+    
+    cond_len = ast.Compare(
+        left=ast.Call(
+          func=ast.Name(id='len'),
+          args=[obj],
+          keywords=[]
+        ),
+        ops=[ast.Eq()],
+        comparators=[ast.Constant(value=len(elts))]
+      )
+    curr = cond_len
+    
+    for i, elt in enumerate(elts):
+      sub = ast.Subscript(
+        value=obj,
+        slice=ast.Constant(value=i)
+      )
+      curr = ast.BinOp(left=curr, op=ast.And(), right=exp_for_ann(sub, elt))
+    ### END FOR ###
+    return curr
+  elif cons.id == 'List':
+    # We only support single type
+    assert not isinstance(slice, ast.Tuple)
+    
+    iter_el = ast.Name(id='__metap_x')
+    el_ty = exp_for_ann(iter_el, slice)
+    list_comp = ast.ListComp(
+      elt=el_ty,
+      generators=[ast.comprehension(target=iter_el, iter=obj, ifs=[])]
+    )
+    all_call = ast.Call(
+      func=ast.Name(id='all'),
+      args=[list_comp],
+      keywords=[]
+    )
+    return all_call
+  else:
+    assert False  
+  
+
+class AssertTransformer(ast.NodeTransformer):
+  def visit_FunctionDef(self, fdef:ast.FunctionDef):
+    ifs = []
+    
+    args = fdef.args.args
+    for arg in args:
+      assert isinstance(arg, ast.arg)
+      ann = arg.annotation
+      if ann is not None:
+        id_ = ast.Name(id=arg.arg)
+        type_call = ast.Call(
+          func=ast.Name(id='type'),
+          args=[id_],
+          keywords=[]
+        )
+        print_ty = get_print(type_call)
+        print_obj = get_print(id_)
+        assert_f = ast.Assert(
+          test=ast.Constant(value=False)
+        )
+        if_ = ast.If(
+          test=ast.UnaryOp(op=ast.Not(), operand=exp_for_ann(id_, ann)),
+          body=[print_obj, print_ty, assert_f],
+          orelse=[]
+        )
+        ifs.append(if_)
+    ### END FOR ###
+    
+    
+    
+    fdef.body = ifs + fdef.body
+    return fdef
 
 
 class MetaP:
@@ -548,6 +666,10 @@ class MetaP:
   def log_ifs(self, range=[], indent=False):
     transformer = LogIfs(range=range, indent=indent)
     transformer.visit(self.ast)
+    
+  def add_asserts(self):
+    t = AssertTransformer()
+    t.visit(self.ast)
     
   # Handles anything that is required to be transformed for the code to run
   # (i.e., any code that uses metap features)

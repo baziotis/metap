@@ -32,7 +32,12 @@ def compose_retif_and_logret(fname):
   mp.compile()
   mp.log_returns()
   mp.dump()
-
+  
+def add_asserts(fname):
+  mp = metap.MetaP(filename=fname)
+  mp.add_asserts()
+  mp.compile()
+  mp.dump()
 
 def boiler(src, mid_func):
   fname = 'test.py'
@@ -473,6 +478,7 @@ def log_if_indent(fname):
   mp.compile()
   mp.dump()
 
+
 class LogIfs(unittest.TestCase):
   def test_simple(self):
     src = \
@@ -593,6 +599,187 @@ else:
 
     out = boiler(src, log_if_indent)
     self.assertEqual(out, expect)
+
+
+
+class AddAsserts(unittest.TestCase):
+  def test_simple(self):
+    src = \
+"""
+def foo(s: str):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(s: str):
+  if not isinstance(s, str):
+    print(s)
+    print(type(s))
+    assert False
+  pass
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+
+
+
+
+
+  def test_optional(self):
+    src = \
+"""
+def foo(s: Optional[str]):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(s: Optional[str]):
+  if not (isinstance(s, str) or s is None):
+    print(s)
+    print(type(s))
+    assert False
+  pass
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+
+
+
+
+
+  def test_union(self):
+    src = \
+"""
+def foo(s: Union[str, int]):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(s: Union[str, int]):
+  if not (isinstance(s, str) or isinstance(s, int)):
+    print(s)
+    print(type(s))
+    assert False
+  pass
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+
+
+
+
+
+  def test_tuple(self):
+    src = \
+"""
+def foo(s: Tuple[str, int, RandomClass]):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(s: Tuple[str, int, RandomClass]):
+  if not (len(s) == 3 and isinstance(s[0], str) and isinstance(s[1], int) and
+      isinstance(s[2], RandomClass)):
+    print(s)
+    print(type(s))
+    assert False
+  pass
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+    
+
+
+
+  def test_list(self):
+    src = \
+"""
+def foo(s: List[str]):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(s: List[str]):
+  if not all([isinstance(__metap_x, str) for __metap_x in s]):
+    print(s)
+    print(type(s))
+    assert False
+  pass
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+
+
+  def test_complex(self):
+    src = \
+"""
+def foo(s:List[Optional[Tuple[str, int]]]):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(s: List[Optional[Tuple[str, int]]]):
+  if not all([(len(__metap_x) == 2 and isinstance(__metap_x[0], str) and
+      isinstance(__metap_x[1], int) or __metap_x is None) for __metap_x in s]):
+    print(s)
+    print(type(s))
+    assert False
+  pass
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+
+
+
+
+  def test_complex2(self):
+    src = \
+"""
+def foo(s: Optional[Tuple[List[str], List[int]]]):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(s: Optional[Tuple[List[str], List[int]]]):
+  if not (len(s) == 2 and all([isinstance(__metap_x, str) for __metap_x in
+      s[0]]) and all([isinstance(__metap_x, int) for __metap_x in s[1]]) or
+      s is None):
+    print(s)
+    print(type(s))
+    assert False
+  pass
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+
 
 
 if __name__ == '__main__':
