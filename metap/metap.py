@@ -515,7 +515,7 @@ class LogIfs(ast.NodeTransformer):
     # END IF #
 
     if_.body = new_then
-    if not isinstance(if_.orelse[0], ast.If):
+    if len(if_.orelse) != 0 and not isinstance(if_.orelse[0], ast.If):
       if_.orelse = new_else
     
     return if_

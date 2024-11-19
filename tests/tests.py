@@ -601,6 +601,38 @@ else:
     self.assertEqual(out, expect)
 
 
+  def test_noelse(self):
+    src = \
+"""
+if True:
+  if True:
+    pass
+else:
+  pass
+"""
+
+    expect = \
+"""import metap
+if True:
+  metap.indent_print()
+  print('metap::If(ln=2)')
+  with metap.indent_ctx():
+    if True:
+      metap.indent_print()
+      print('metap::If(ln=3)')
+      with metap.indent_ctx():
+        pass
+else:
+  metap.indent_print()
+  print('metap::Else(ln=2)')
+  with metap.indent_ctx():
+    pass
+"""
+
+    out = boiler(src, log_if_indent)
+    self.assertEqual(out, expect)
+
+
 
 class AddAsserts(unittest.TestCase):
   def test_simple(self):
