@@ -458,7 +458,140 @@ def foo(n):
       mp.dump()      
 
     out = boiler(src, log_func_def2)
-    self.maxDiff = None
+    self.assertEqual(out, expect)
+
+
+def log_if(fname):
+  mp = metap.MetaP(filename=fname)
+  mp.log_ifs()
+  mp.compile()
+  mp.dump()
+
+def log_if_indent(fname):
+  mp = metap.MetaP(filename=fname)
+  mp.log_ifs(indent=True)
+  mp.compile()
+  mp.dump()
+
+class LogIfs(unittest.TestCase):
+  def test_simple(self):
+    src = \
+"""
+if True:
+  pass
+else:
+  pass
+"""
+
+    expect = \
+"""import metap
+if True:
+  print('metap::If(ln=2)')
+  pass
+else:
+  print('metap::Else(ln=2)')
+  pass
+"""
+
+    out = boiler(src, log_if)
+    self.assertEqual(out, expect)
+
+
+
+  def test_simple2(self):
+    src = \
+"""
+if False:
+  pass
+elif True:
+  pass
+else:
+  pass
+"""
+
+    expect = \
+"""import metap
+if False:
+  print('metap::If(ln=2)')
+  pass
+elif True:
+  print('metap::If(ln=4)')
+  pass
+else:
+  print('metap::Else(ln=4)')
+  pass
+"""
+
+    out = boiler(src, log_if)
+    self.assertEqual(out, expect)
+
+
+
+
+  def test_indent(self):
+    src = \
+"""
+if True:
+  pass
+else:
+  pass
+"""
+
+    expect = \
+"""import metap
+if True:
+  metap.indent_print()
+  print('metap::If(ln=2)')
+  with metap.indent_ctx():
+    pass
+else:
+  metap.indent_print()
+  print('metap::Else(ln=2)')
+  with metap.indent_ctx():
+    pass
+"""
+
+    out = boiler(src, log_if_indent)
+    self.assertEqual(out, expect)
+
+
+
+  def test_indent2(self):
+    src = \
+"""
+if True:
+  if False:
+    pass
+  else:
+    pass
+else:
+  pass
+"""
+
+    expect = \
+"""import metap
+if True:
+  metap.indent_print()
+  print('metap::If(ln=2)')
+  with metap.indent_ctx():
+    if False:
+      metap.indent_print()
+      print('metap::If(ln=3)')
+      with metap.indent_ctx():
+        pass
+    else:
+      metap.indent_print()
+      print('metap::Else(ln=3)')
+      with metap.indent_ctx():
+        pass
+else:
+  metap.indent_print()
+  print('metap::Else(ln=2)')
+  with metap.indent_ctx():
+    pass
+"""
+
+    out = boiler(src, log_if_indent)
     self.assertEqual(out, expect)
 
 

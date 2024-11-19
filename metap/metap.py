@@ -102,6 +102,18 @@ class LogReturnWalker(astor.TreeWalk):
     )
     self.replace(new_node)
 
+def get_print(arg:str):
+  assert isinstance(arg, str)
+
+  print_call = ast.Call(
+    func=ast.Name(id="print"),
+    args=[ast.Constant(value=arg)],
+    keywords=[]
+  )
+  print_e = ast.Expr(value=print_call)
+  
+  return print_e
+
 def break_cont(cur_node, kind):
   assert hasattr(cur_node, 'lineno')
   lineno = cur_node.lineno
@@ -110,18 +122,12 @@ def break_cont(cur_node, kind):
   log_info["ln"] = lineno
 
   out_log = fmt_log_info(log_info)
-
-  print_before = ast.Expr(
-    value=ast.Call(
-      func=ast.Name(id="print"),
-      args=[ast.Constant(value=out_log)],
-      keywords=[]
-    )
-  )
+  
+  print_before = get_print(out_log)
   
   return [print_before, cur_node]
 
-class BreakContTransformer(ast.NodeTransformer):
+class LogBreakCont(ast.NodeTransformer):
   def __init__(self, kind):
     ast.NodeTransformer.__init__(self)
     self.kind = kind
@@ -138,7 +144,7 @@ class BreakContTransformer(ast.NodeTransformer):
     else:
       return node
 
-class CallSiteTransformer(ast.NodeTransformer):
+class LogCallSite(ast.NodeTransformer):
   def __init__(self, range=[]):
     ast.NodeTransformer.__init__(self)
     self.range = range
@@ -409,6 +415,26 @@ class NecessaryTransformer(ast.NodeTransformer):
 
     return if_
 
+def indent_triple(body, print_log_e):
+  print_indent = ast.Call(
+    func=ast.Attribute(value=ast.Name(id="metap"), attr='indent_print'),
+    args=[],
+    keywords=[]
+  )
+  print_indent_e = ast.Expr(value=print_indent)
+
+  indent_ctx = ast.Call(
+    func=ast.Attribute(value=ast.Name(id="metap"), attr='indent_ctx'),
+    args=[],
+    keywords=[]
+  )
+  with_ = ast.With(
+    items=[ast.withitem(context_expr=indent_ctx, optional_vars=None)],
+    body=body
+  )
+  
+  return [print_indent_e, print_log_e, with_]
+
 class LogFuncDef(ast.NodeTransformer):
   def __init__(self, range=[], indent=False):
     ast.NodeTransformer.__init__(self)
@@ -430,37 +456,65 @@ class LogFuncDef(ast.NodeTransformer):
 
     out_log = fmt_log_info(log_info)
 
-    print_log = ast.Call(
-      func=ast.Name(id="print"),
-      args=[ast.Constant(value=out_log)],
-      keywords=[]
-    )
-    print_log_e = ast.Expr(value=print_log)
+    print_log_e = get_print(out_log)
 
     if not self.indent:
       fdef.body = [print_log_e] + fdef.body
       return fdef
     else:
-      print_indent = ast.Call(
-        func=ast.Attribute(value=ast.Name(id="metap"), attr='indent_print'),
-        args=[],
-        keywords=[]
-      )
-      print_indent_e = ast.Expr(value=print_indent)
-
-      indent_ctx = ast.Call(
-        func=ast.Attribute(value=ast.Name(id="metap"), attr='indent_ctx'),
-        args=[],
-        keywords=[]
-      )
-      with_ = ast.With(
-        items=[ast.withitem(context_expr=indent_ctx, optional_vars=None)],
-        body=fdef.body
-      )
-      
-      new_body = [print_indent_e, print_log_e, with_]
+      new_body = indent_triple(body=fdef.body, print_log_e=print_log_e)
       fdef.body = new_body
       return fdef
+
+class LogIfs(ast.NodeTransformer):
+  def __init__(self, range=[], indent=False):
+    ast.NodeTransformer.__init__(self)
+    self.range = range
+    self.indent = indent
+
+  def visit_If(self, if_:ast.If):
+    assert hasattr(if_, 'lineno')
+    then_lineno = if_.lineno
+
+    if not in_range(then_lineno, self.range):
+      return if_
+    
+    log_info_then = {"name": "If"}
+    log_info_then["ln"] = then_lineno
+    
+    out_log_then = fmt_log_info(log_info_then)
+    
+    log_info_else = {"name": "Else"}
+    log_info_else["ln"] = then_lineno
+    
+    out_log_else = fmt_log_info(log_info_else)
+
+    new_then = []
+    new_else = []
+    for b in if_.body:
+      new_then.append(self.visit(b))
+    ### END FOR ###
+    for s in if_.orelse:
+      new_else.append(self.visit(s))
+    ### END FOR ###
+    
+    print_then = get_print(out_log_then)
+    print_else = get_print(out_log_else)
+
+    if not self.indent:
+      new_then = [print_then] + new_then
+      new_else = [print_else] + new_else
+    else:
+      
+      new_then = indent_triple(body=new_then, print_log_e=print_then)
+      new_else = indent_triple(body=new_else, print_log_e=print_else)
+    # END IF #
+
+    if_.body = new_then
+    if not isinstance(if_.orelse[0], ast.If):
+      if_.orelse = new_else
+    
+    return if_
 
 
 class MetaP:
@@ -476,19 +530,23 @@ class MetaP:
     walker.walk(self.ast)
 
   def log_breaks(self):
-    transformer = BreakContTransformer("Break")
+    transformer = LogBreakCont("Break")
     transformer.visit(self.ast)
   
   def log_continues(self):
-    transformer = BreakContTransformer("Continue")
+    transformer = LogBreakCont("Continue")
     transformer.visit(self.ast)
   
   def log_calls(self, range=[]):
-    transformer = CallSiteTransformer(range=range)
+    transformer = LogCallSite(range=range)
     transformer.visit(self.ast)
   
   def log_func_defs(self, range=[], indent=False):
     transformer = LogFuncDef(range=range, indent=indent)
+    transformer.visit(self.ast)
+  
+  def log_ifs(self, range=[], indent=False):
+    transformer = LogIfs(range=range, indent=indent)
     transformer.visit(self.ast)
     
   # Handles anything that is required to be transformed for the code to run
