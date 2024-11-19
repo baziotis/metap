@@ -782,5 +782,33 @@ def foo(s: Optional[Tuple[List[str], List[int]]]):
 
 
 
+
+
+  def test_complex2(self):
+    src = \
+"""
+def foo(s: str, a: int):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(s: str, a: int):
+  if not isinstance(s, str):
+    print(s)
+    print(type(s))
+    assert False
+  if not isinstance(a, int):
+    print(a)
+    print(type(a))
+    assert False
+  pass
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+
 if __name__ == '__main__':
     unittest.main()
