@@ -784,7 +784,7 @@ def foo(s: Optional[Tuple[List[str], List[int]]]):
 
 
 
-  def test_complex2(self):
+  def test_mult_args(self):
     src = \
 """
 def foo(s: str, a: int):
