@@ -374,3 +374,50 @@ z = baz()
   assert y_act == y_exp
   assert z_act == z_exp
   del mod
+
+
+TIME_CLIENT = """
+import metap
+
+mp = metap.MetaP(filename='test.py')
+mp.compile()
+mp.dump()
+"""
+
+
+def test_time_e():
+  mprogram = """
+res, ns = _time_e(print('test'))
+"""
+
+  mod = boiler(mprogram, CVAR_CLIENT)
+  
+  assert 'res' in mod.__dict__
+  assert 'ns' in mod.__dict__
+
+  actual = mod.__dict__['res']
+  expected = None
+
+  assert actual == expected
+  assert isinstance(mod.__dict__['ns'], int)
+  
+  del mod
+
+
+def test_time_e2():
+  mprogram = """
+res, ns = _time_e(2 + 3)
+"""
+
+  mod = boiler(mprogram, CVAR_CLIENT)
+  
+  assert 'res' in mod.__dict__
+  assert 'ns' in mod.__dict__
+
+  actual = mod.__dict__['res']
+  expected = 5
+
+  assert actual == expected
+  assert isinstance(mod.__dict__['ns'], int)
+  
+  del mod

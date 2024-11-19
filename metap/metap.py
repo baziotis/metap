@@ -36,6 +36,14 @@ def indent_ctx():
 def indent_print():
   for _ in range(__metap_indent_counter):
     print("  ", end="")
+    
+
+def time_exec(code, globals_):
+  # code_obj = compile(code, 'metap', 'exec'), 
+  exec(code, globals_)
+  assert '__metap_res' in globals_
+  assert '__metap_total_ns' in globals_
+  return globals_['__metap_res'], globals_['__metap_total_ns']
 
 ### END HELPERS ###
 
@@ -281,13 +289,33 @@ class NecessaryTransformer(ast.NodeTransformer):
     return [asgn, if_]
   
   # Verifier that we have actually changed every call
-  def visit_Call(self, call):
+  def visit_Call(self, call: ast.Call):
     if not isinstance(call.func, ast.Name):
       return call
     
     funcs = ['__ret_ifn', '__ret_ifnn', '_cvar']
     if call.func.id in funcs:
       assert False
+      
+    # Handle timing
+    if call.func.id == '_time_e':
+      args = call.args
+      assert len(args) == 1
+      e = ast.Expr(value=args[0])
+      code_to_exec = f"""
+import time
+__metap_start_ns = time.perf_counter_ns()
+__metap_res = {astor.to_source(e).strip()}
+__metap_end_ns = time.perf_counter_ns()
+__metap_total_ns = __metap_end_ns - __metap_start_ns
+"""
+      new_call = ast.Call(
+        func=ast.Attribute(value=ast.Name(id="metap"), attr='time_exec'),
+        args=[ast.Constant(value=code_to_exec), globals_call()],
+        keywords=[]
+      )
+      return new_call
+    # END IF #
     
     return call
 
