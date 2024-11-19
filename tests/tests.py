@@ -832,6 +832,76 @@ def foo(s: None):
 
     out = boiler(src, add_asserts)
     self.assertEqual(out, expect)
+    
+
+
+
+
+  def test_ret(self):
+    src = \
+"""
+def foo(s: int) -> str:
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def __metap_foo(s: int) -> str:
+  if not isinstance(s, int):
+    print(s)
+    print(type(s))
+    assert False
+  pass
+
+
+def foo(s: int) -> str:
+  __metap_retv = __metap_foo(s)
+  if not isinstance(__metap_retv, str):
+    print(__metap_retv)
+    print(type(__metap_retv))
+    assert False
+  return __metap_retv
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+    
+
+
+
+  def test_ret2(self):
+    src = \
+"""
+def foo(s: int) -> Optional[Tuple[str, int]]:
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def __metap_foo(s: int) -> Optional[Tuple[str, int]]:
+  if not isinstance(s, int):
+    print(s)
+    print(type(s))
+    assert False
+  pass
+
+
+def foo(s: int) -> Optional[Tuple[str, int]]:
+  __metap_retv = __metap_foo(s)
+  if not (len(__metap_retv) == 2 and isinstance(__metap_retv[0], str) and
+      isinstance(__metap_retv[1], int) or __metap_retv is None):
+    print(__metap_retv)
+    print(type(__metap_retv))
+    assert False
+  return __metap_retv
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
 
 if __name__ == '__main__':
     unittest.main()

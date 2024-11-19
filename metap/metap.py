@@ -1,6 +1,7 @@
 import ast, astor
 import os
 from contextlib import contextmanager
+import copy
 
 ### HELPERS called from the generated program ###
 
@@ -604,11 +605,34 @@ def exp_for_ann(obj, ann):
     assert False  
   
 
+def ann_if(obj, ann):
+  type_call = ast.Call(
+    func=ast.Name(id='type'),
+    args=[obj],
+    keywords=[]
+  )
+  print_ty = get_print(type_call)
+  print_obj = get_print(obj)
+  assert_f = ast.Assert(
+    test=ast.Constant(value=False)
+  )
+  if_ = ast.If(
+    test=ast.UnaryOp(op=ast.Not(), operand=exp_for_ann(obj, ann)),
+    body=[print_obj, print_ty, assert_f],
+    orelse=[]
+  )
+  return if_
+
 class AssertTransformer(ast.NodeTransformer):
   def visit_FunctionDef(self, fdef:ast.FunctionDef):
+    if (len(fdef.decorator_list) != 0 or
+        fdef.args.vararg is not None or
+        len(fdef.args.posonlyargs) != 0 or
+        fdef.args.kwarg is not None or
+        len(fdef.args.defaults) != 0):
+      return fdef
+
     ifs = []
-    
-    # if fdef.an
     
     args = fdef.args.args
     for arg in args:
@@ -616,26 +640,40 @@ class AssertTransformer(ast.NodeTransformer):
       ann = arg.annotation
       if ann is not None:
         id_ = ast.Name(id=arg.arg)
-        type_call = ast.Call(
-          func=ast.Name(id='type'),
-          args=[id_],
-          keywords=[]
-        )
-        print_ty = get_print(type_call)
-        print_obj = get_print(id_)
-        assert_f = ast.Assert(
-          test=ast.Constant(value=False)
-        )
-        if_ = ast.If(
-          test=ast.UnaryOp(op=ast.Not(), operand=exp_for_ann(id_, ann)),
-          body=[print_obj, print_ty, assert_f],
-          orelse=[]
-        )
+        if_ = ann_if(id_, ann)
         ifs.append(if_)
     ### END FOR ###
     
-    fdef.body = ifs + fdef.body
-    return fdef
+    new_body = ifs + fdef.body
+
+    ret_ann = fdef.returns
+    if ret_ann is not None:
+      helper_func = copy.deepcopy(fdef)
+      helper_name = '__metap_'+fdef.name
+      helper_func.name = helper_name
+      helper_func.body = new_body
+      call_helper = ast.Call(
+        func=ast.Name(id=helper_name),
+        args=[
+          ast.Name(id=arg.arg, ctx=ast.Load())
+          for arg in fdef.args.args
+        ],
+        keywords=[]
+      )
+      ret_var = ast.Name(id='__metap_retv')
+      asgn = ast.Assign(
+        targets=[ret_var],
+        value=call_helper
+      )
+      ret = ast.Return(
+        value=ret_var
+      )
+      if_ = ann_if(ret_var, ret_ann)
+      fdef.body = [asgn, if_, ret]
+      return [helper_func, fdef]
+    else:
+      fdef.body = new_body
+      return fdef
 
 
 class MetaP:
