@@ -807,6 +807,29 @@ def foo(s: str, a: int):
   pass
 """
 
+
+
+
+
+  def test_const(self):
+    src = \
+"""
+def foo(s: None):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(s: None):
+  if not s == None:
+    print(s)
+    print(type(s))
+    assert False
+  pass
+"""
+
     out = boiler(src, add_asserts)
     self.assertEqual(out, expect)
 

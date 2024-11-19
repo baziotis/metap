@@ -535,6 +535,9 @@ def exp_for_ann(obj, ann):
   if isinstance(ann, ast.Name):
     return isinst_call(obj, ann)
   
+  if isinstance(ann, ast.Constant):
+    return ast.Compare(left=obj, ops=[ast.Eq()], comparators=[ann])
+  
   assert isinstance(ann, ast.Subscript)
   sub = ann
   slice = sub.slice
@@ -605,6 +608,8 @@ class AssertTransformer(ast.NodeTransformer):
   def visit_FunctionDef(self, fdef:ast.FunctionDef):
     ifs = []
     
+    # if fdef.an
+    
     args = fdef.args.args
     for arg in args:
       assert isinstance(arg, ast.arg)
@@ -628,8 +633,6 @@ class AssertTransformer(ast.NodeTransformer):
         )
         ifs.append(if_)
     ### END FOR ###
-    
-    
     
     fdef.body = ifs + fdef.body
     return fdef
