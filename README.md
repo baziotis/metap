@@ -347,6 +347,9 @@ mp.dump('test.py')
 
 ## `__ret_ifnn()` and `__ret_ifn()`
 
+**Parameters**:
+- `e`: Any expression.
+
 This feature introduces two new statements that return only under a condition.
 By far the two most common conditions in practice are: (1) return `x` if `x` is not
 `None` and (2) return `None` if `x` is `None`. Both can be expressed simply
@@ -387,7 +390,7 @@ can issue `mp.compile()`, which will create the `if-return`, and then use
 `mp.log_returns()` which will log the generated returns (but using the line
 numbers of the original call).
 
-## Assign to variables inside condition expressions
+## `cvar()`
 
 **Example**
 
@@ -410,3 +413,19 @@ This is basically similar to C++'s:
 ```c++
 if (c = line.startswith("# "))
 ```
+
+## `time_e()`
+
+Time expression.
+
+**Parameters**:
+- `e`: Any expression
+
+
+**Example**:
+
+```
+res, ns = _time_e(2 + 3)
+```
+
+`res` gets `5` and `ns` gets the timing in nanoseconds.
