@@ -39,6 +39,16 @@ def add_asserts(fname):
   mp.compile()
   mp.dump()
 
+def log_calls_start_end1(fname):
+  mp = metap.MetaP(filename=fname)
+  mp.log_calls_start_end(patt=r'find_primes')
+  mp.dump()
+
+def log_calls_start_end2(fname):
+  mp = metap.MetaP(filename=fname)
+  mp.log_calls_start_end(patt=r'.*json\.dump')
+  mp.dump()
+
 def boiler(src, mid_func):
   fname = 'test.py'
   with open(fname, 'w') as fp:
@@ -934,6 +944,56 @@ def foo(s: int) -> Optional[Tuple[str, int]]:
 
     out = boiler(src, add_asserts)
     self.assertEqual(out, expect)
+
+
+
+
+class LogCallsStartEnd(unittest.TestCase):
+  def test_nested(self):
+    src = \
+"""
+with open('d.json', 'w') as fp:
+  json.dump(find_primes(1_000_000), fp)
+"""
+
+    expect = \
+"""import metap
+with open('d.json', 'w') as fp:
+  json.dump(metap.simple_exec(
+      \"""
+print(f"metap: Started executing: 3:find_primes(1000000)")
+__metap_res = find_primes(1000000)
+print(f"metap: Finished executing: 3:find_primes(1000000)")
+\"""
+      , globals()), fp)
+"""
+
+    out = boiler(src, log_calls_start_end1)
+    self.assertEqual(out, expect)
+
+
+  def test_nested2(self):
+    src = \
+"""
+with open('d.json', 'w') as fp:
+  json.dump(find_primes(1_000_000), fp)
+"""
+
+    expect = \
+"""import metap
+with open('d.json', 'w') as fp:
+  metap.simple_exec(
+      \"""
+print(f"metap: Started executing: 3:json.dump(find_primes(1000000), fp)")
+__metap_res = json.dump(find_primes(1000000), fp)
+print(f"metap: Finished executing: 3:json.dump(find_primes(1000000), fp)")
+\"""
+      , globals())
+"""
+
+    out = boiler(src, log_calls_start_end2)
+    self.assertEqual(out, expect)
+
 
 if __name__ == '__main__':
     unittest.main()

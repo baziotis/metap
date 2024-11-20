@@ -2,6 +2,7 @@ import ast, astor
 import os
 from contextlib import contextmanager
 import copy
+import re
 
 ### HELPERS called from the generated program ###
 
@@ -44,6 +45,12 @@ def time_exec(code, globals_):
   assert '__metap_res' in globals_
   assert '__metap_total_ns' in globals_
   return globals_['__metap_res'], globals_['__metap_total_ns']
+
+def simple_exec(code, globals_):
+  exec(code, globals_)
+  assert '__metap_res' in globals_
+  return globals_['__metap_res']
+
 
 ### END HELPERS ###
 
@@ -710,6 +717,40 @@ class AssertTransformer(ast.NodeTransformer):
       return fdef
 
 
+
+class CallStartEnd(ast.NodeTransformer):
+  def __init__(self, patt=None):
+    ast.NodeTransformer.__init__(self)
+    self.patt = patt
+
+  def visit_Call(self, call: ast.Call):
+    # TODO: Add filename
+    assert hasattr(call, 'lineno')
+    lineno = call.lineno
+    
+    self.generic_visit(call)
+
+    e = ast.Expr(value=call)
+    e_src = astor.to_source(e).strip()
+    func_name = astor.to_source(call.func).strip()
+    if self.patt is not None and not re.match(self.patt, e_src):
+      return call
+
+    # TODO: We may have a problem here if `e_src` has double strings. Can it?
+    # It comes from astor.to_source() which uses single quotes.
+    log = '{}:{}'.format(lineno, e_src)
+    code_to_exec = f"""
+print(f"metap: Started executing: {log}")
+__metap_res = {e_src}
+print(f"metap: Finished executing: {log}")
+"""
+    new_call = ast.Call(
+      func=ast.Attribute(value=ast.Name(id="metap"), attr='simple_exec'),
+      args=[ast.Constant(value=code_to_exec), globals_call()],
+      keywords=[]
+    )
+    return new_call
+
 class MetaP:
   def __init__(self, filename) -> None:
     self.filename = filename
@@ -745,7 +786,12 @@ class MetaP:
   def add_asserts(self):
     t = AssertTransformer()
     t.visit(self.ast)
+  
+  def log_calls_start_end(self, patt=None):
+    t = CallStartEnd(patt=patt)
+    t.visit(self.ast)
     
+
   # Handles anything that is required to be transformed for the code to run
   # (i.e., any code that uses metap features)
   def compile(self):

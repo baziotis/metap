@@ -331,6 +331,34 @@ def foo(s: Optional[str]):
   pass
 ```
 
+## `MetaP.log_calls_start_end()`
+
+Prints a message before and after calls matching a pattern.
+
+**Parameters**:
+- `patt: Pattern`: Regular expression. Only function calls that have function names that match this pattern are logged.
+
+**Simple Example*
+
+```python
+# test_mp.py
+with open('d.json', 'w') as fp:
+  json.dump(d, fp)
+```
+
+```python
+import metap
+mp = metap.MetaP(filename="test_mp.py")
+mp.log_calls_start_end(patt=r'.*json\.dump')
+mp.dump(filename="test.py")
+```
+
+Running the generated `test.py` gives us:
+```
+metap: Started executing: 3:json.dump('d.json', fp)
+metap: Finished executing: 3:json.dump('d.json', fp)
+```
+
 ## Superset of Python and Non-Optional Compilation
 
 All the features we've seen up to now make running a `metap` client _optional_. In other words, you could just run the `test_mp.py` programs without using a client at all.
