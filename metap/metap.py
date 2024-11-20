@@ -391,6 +391,12 @@ __metap_total_ns = __metap_end_ns - __metap_start_ns
     # But this is very complex, because we essentially have to implement
     # short-circuiting, which means we need different handling for `and` and
     # `or`. And in general, it needs much more gymnastics.
+    
+    # --- Alternative Solution 2 ---
+
+    # Pass a code block into a function and use `exec()`. Similar to how we
+    # handle `_time_e()`.
+    
 
     new_body = []
     new_orelse = []
