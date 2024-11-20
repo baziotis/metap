@@ -118,11 +118,11 @@ To finish this quickstart guide, let's see when things really get interesting,
 and that's when the meta-program starts using `metap`-specific features.
 
 This example is taken straight from actual code I've written for
-markdown-to-html compiler I wrote (which is used to generate the HTML for the
-article you're reading). I want to parse a line and I want to see if it's a
-heading, which means it starts with `#`. But, I also care about whether it's a
-level-1 heading (i.e., `&lt;h1&gt;`) or level-2 (i.e., `&lt;h2&gt;`), to
-generate the appropriate code. With `metap` I can simply write the following:
+markdown-to-html compiler I use to write articles. I want to parse a line and I
+want to see if it's a heading, which means it starts with `#`. But, I also care
+about whether it's a level-1 heading (i.e., `<h1>`) or level-2 (i.e.,
+`<h2>`), to generate the appropriate code. With `metap` I can simply write
+the following:
 
 ```python
 # mdhtml_mp.py
