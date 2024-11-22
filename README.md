@@ -2,22 +2,14 @@ An easy-to-use meta-programming layer for Python.
 
 # Motivation
 
-Over the years, I've come across several language features which would make my
-Python programming much easier, which will probably not make it into the
-language any time soon. I finally decided to implement a tool that allows me to
-have these features.
+After several thousands of lines of code written in Python, I've come across
+several language features which would make my Python programming much more
+efficient, but which will probably not appear in standard Python any time soon.
+So, I finally decided to implement a tool that allows me to have these features.
 
-The obvious solution would be to actually extend the language, but it has
-serious drawbacks. First, it's a [hefty task](https://aroberge.github.io/ideas/docs/html/#ideas-making-it-easier-to-extend-python-s-syntax). But most importantly, it would be hard to reuse the work across
-environments, machines, etc., because I would have to have my custom version of
-Python everywhere. The solution that is both fun and useful is a
-_meta-programming_ layer.
-
-Hence, I created `metap`, an easy-to-use meta-programming layer for Python,
-which basically allows us to write programs that generate programs. That sounds
-fancy, but in practice our meta-program is just a Python program with a couple
-of extra features.
-
+`metap` is an easy-to-use meta-programming layer for Python. It allows you to
+write programs that generate programs. That sounds fancy, but in practice
+`metap` just automates tedious program transformations and programming patterns.
 
 # Quickstart
 
@@ -47,8 +39,9 @@ bar()
 ```
 
 In this simple example, the meta-program has nothing `metap`-specific. You can
-just run it with Python as it is. But, you can still do things to it; for
-example, log all the `return`s. So, we write a simple client:
+just run it with Python as it is. But, you can still tell a client to transform
+it in various useful ways. For example, you may want to log all the `return`s.
+So, we write a simple client:
 
 ```python
 # client.py
@@ -85,7 +78,7 @@ numbers of the _original_ program (i.e., the meta-program), which is what you
 want because this is what you're working on. 
 
 `metap` allows you to log all kinds of things, optionally supporting indentation
-and indexing. Here's another simple example of logging when we enter into function bodies:
+and only logging within ranges. Here's another simple example of logging when we enter into function bodies:
 
 ```python,linenos
 # test_mp.py
@@ -114,11 +107,11 @@ metap::FuncDef(ln=7,func=foo)
     metap::FuncDef(ln=4,func=baz)
 ```
 
-To finish this quickstart guide, let's see when things really get interesting,
-and that's when the meta-program starts using `metap`-specific features.
+To finish this quickstart guide, things get really interesting when the
+meta-program starts using `metap`-specific features.
 
-This example is taken straight from actual code I've written for
-markdown-to-html compiler I use to write articles. I want to parse a line and I
+This example is taken straight from actual code I've written for a
+markdown-to-html compiler I use to write [my articles](https://sbaziotis.com/#blog). I want to parse a line and I
 want to see if it's a heading, which means it starts with `#`. But, I also care
 about whether it's a level-1 heading (i.e., `<h1>`) or level-2 (i.e.,
 `<h2>`), to generate the appropriate code. With `metap` I can simply write
@@ -127,7 +120,8 @@ the following:
 ```python
 # mdhtml_mp.py
 line = "# test"
-if _cvar(line.startswith('# '), hlvl, 1) or _cvar(line.startswith('## '), hlvl, 2):
+if (_cvar(line.startswith('# '), hlvl, 1) or
+    _cvar(line.startswith('## '), hlvl, 2)):
   print(hlvl)
 ```
 
@@ -141,9 +135,9 @@ mp.compile()
 mp.dump(filename="mdhtml.py")
 ```
 
-`mp.compile()` handles _all_ the `metap`-specific features in a single call. After
-generating `mdhtml.py` and running it, I get `1`. You can tell how useful this
-is by trying to write it in standard Python :)
+`mp.compile()` handles _all_ the `metap`-specific features in a single call.
+After generating `mdhtml.py` and running it, I get `1`. You can tell how useful
+this is by trying to write it in standard Python :)
 
 
 
@@ -177,7 +171,7 @@ Similar to `log_returns()` but for `break` and `continue`.
 
 ### `MetaP.log_calls()`
 
-Log all call-sites
+Log call-sites
 
 **Parameters**:
 - `range: List[Union[int, Tuple[int, int]]]`: Only log returns within the line
@@ -210,9 +204,37 @@ metap::Call(ln=6,call=add_one(x))
 metap::Call(ln=6,call=add_one(x))
 ```
 
+## `MetaP.log_calls_start_end()`
+
+Prints a message before and after calls matching a pattern.
+
+**Parameters**:
+- `patt: Pattern`: Regular expression. Only function calls that have function names that match this pattern are logged.
+
+**Simple Example**
+
+```python
+# test_mp.py
+with open('d.json', 'w') as fp:
+  json.dump(d, fp)
+```
+
+```python
+import metap
+mp = metap.MetaP(filename="test_mp.py")
+mp.log_calls_start_end(patt=r'.*json\.dump')
+mp.dump(filename="test.py")
+```
+
+Running the generated `test.py` gives us:
+```
+metap: Started executing: 3:json.dump('d.json', fp)
+metap: Finished executing: 3:json.dump('d.json', fp)
+```
+
 ### `MetaP.log_func_defs()`
 
-Log all call-sites
+Log when we get into functions.
 
 **Parameters**:
 - `range: List[Union[int, Tuple[int, int]]]`: Only log returns within the line
@@ -297,15 +319,16 @@ metap::If(ln=1)
   metap::If(ln=7)
 ```
 
-Note that the inner `if` with the else was not logged because it's not within the ranges.
+Note that the inner `if` with the `else` was not logged because it's not within the ranges.
 
 ## `MetaP.add_asserts()`
 
-Adds asserts that verify type annotations in function arguments and returns.
+Adds asserts that verify type annotations in function arguments, returns, and
+assignments.
 
 **Parameters**: None
 
-**Simple Example*
+**Simple Example**
 
 ```python
 # test_mp.py
@@ -331,39 +354,48 @@ def foo(s: Optional[str]):
   pass
 ```
 
-## `MetaP.log_calls_start_end()`
+## `MetaP.expand_asserts()`
 
-Prints a message before and after calls matching a pattern.
+Expands some asserts such that if they fire, you get some info on the expressions involved.
 
-**Parameters**:
-- `patt: Pattern`: Regular expression. Only function calls that have function names that match this pattern are logged.
+**Parameters**: None
 
-**Simple Example*
-
-```python
-# test_mp.py
-with open('d.json', 'w') as fp:
-  json.dump(d, fp)
-```
+**Simple Example**
 
 ```python
-import metap
-mp = metap.MetaP(filename="test_mp.py")
-mp.log_calls_start_end(patt=r'.*json\.dump')
-mp.dump(filename="test.py")
+a = 2
+def foo():
+  global a
+  a = a + 1
+  return a
+
+assert foo() != 3
 ```
 
-Running the generated `test.py` gives us:
+```python
+# ...
+mp.expand_asserts()
 ```
-metap: Started executing: 3:json.dump('d.json', fp)
-metap: Finished executing: 3:json.dump('d.json', fp)
+
+The generated `test.py` is:
+
+```python
+# ... Same as before
+_metap_l = foo()
+_metap_r = 3
+if _metap_l == _metap_r:
+  print(_metap_l)
+  print(_metap_r)
+  assert False
 ```
 
 ## Superset of Python and Non-Optional Compilation
 
 All the features we've seen up to now make running a `metap` client _optional_. In other words, you could just run the `test_mp.py` programs without using a client at all.
 
-All the following features extend the Python programming language so using a `metap` client is non-optional. All these features are handled by `MetaP.compile()`. So, all the clients in all the following examples are simply:
+All the following features extend the Python programming language so using a
+`metap` client is mandatory. All these features are handled by
+`MetaP.compile()`. So, all the clients in all the following examples are simply:
 
 ```python
 import metap
@@ -378,9 +410,9 @@ mp.dump('test.py')
 **Parameters**:
 - `e`: Any expression.
 
-This feature introduces two new statements that return only under a condition.
-By far the two most common conditions in practice are: (1) return `x` if `x` is not
-`None` and (2) return `None` if `x` is `None`. Both can be expressed simply
+We introduce two new statements that return only under a condition. By far the
+two most common conditions I've used in practice are: (1) return `x` if `x` is
+not `None` and (2) return `None` if `x` is `None`. Both can be expressed simply
 with:
 
 **Example**
@@ -457,3 +489,34 @@ res, ns = _time_e(2 + 3)
 ```
 
 `res` gets `5` and `ns` gets the timing in nanoseconds.
+
+# Design Choices
+
+It may seem that it would be better to extend the language, as this e.g., would
+allow us to add custom `return` statements that accept a condition, instead of
+using call-like syntax with `__ret_ifn()`. However, this option has serious
+drawbacks. First, it's a [hefty
+task](https://aroberge.github.io/ideas/docs/html/#ideas-making-it-easier-to-extend-python-s-syntax).
+But most importantly, it would be hard to reuse the work across environments,
+machines, etc., because one would have to have my custom version of Python
+everywhere.
+
+On the other hand, meta-programming is portable, easy to reason about (because
+you can always see the generated Python code), and opt-in (because you can
+choose not to use the `metap` superset of Python).
+
+
+# Status
+
+`metap` is still in an experimental version, so it should be used with caution
+in production. But, it is under active development. Moreover, thankfully `metap`
+provides many features that don't _require_ you to run `metap` to get valid
+Python. For example, you can use `log_returns()` during debugging and then just
+use what you wrote (i.e., the original meta-program, without going through
+`metap`) in production.
+
+# Contributing
+
+The most useful contributions at the moment are bug reports and feature requests
+(both in the form of [Github issues](https://github.com/baziotis/metap/issues)).
+But, pull requests are always welcome.
