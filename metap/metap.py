@@ -572,7 +572,7 @@ def isnone_cond(obj):
   return ast.Compare(obj, ops=[ast.Is()],
                      comparators=[ast.Constant(value=None)])
 
-# Generate asserts that `obj` is of type `ann`
+# Generate expression that goes into an assert that `obj` is of type `ann`
 def exp_for_ann(obj, ann):
   if isinstance(ann, ast.Name):
     return isinst_call(obj, ann)
@@ -665,6 +665,15 @@ def ann_if(obj, ann):
   return if_
 
 class AssertTransformer(ast.NodeTransformer):
+  def visit_AnnAssign(self, node: ast.AnnAssign):
+    target = node.target
+    if not isinstance(target, ast.Name):
+      return node
+
+    ann = node.annotation
+    if_ = ann_if(target, ann)
+    return [node, if_]
+
   def visit_FunctionDef(self, fdef:ast.FunctionDef):
     if (len(fdef.decorator_list) != 0 or
         fdef.args.vararg is not None or

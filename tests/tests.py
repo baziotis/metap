@@ -948,6 +948,26 @@ def foo(s: int) -> Optional[Tuple[str, int]]:
 
 
 
+  def test_asgn(self):
+    src = \
+"""
+a: Optional[int] = 2
+"""
+
+    expect = \
+"""import metap
+a: Optional[int] = 2
+if not (isinstance(a, int) or a is None):
+  print(a)
+  print(type(a))
+  assert False
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+
+
+
 class LogCallsStartEnd(unittest.TestCase):
   def test_nested(self):
     src = \
