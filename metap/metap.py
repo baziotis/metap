@@ -644,14 +644,16 @@ def exp_for_ann(obj, ann):
     return all_call
   else:
     assert False  
-  
 
-def ann_if(obj, ann):
-  type_call = ast.Call(
+def get_type_call(obj):
+  return ast.Call(
     func=ast.Name(id='type'),
     args=[obj],
     keywords=[]
   )
+
+def ann_if(obj, ann):
+  type_call = get_type_call(obj)
   print_ty = get_print(type_call)
   print_obj = get_print(obj)
   assert_f = ast.Assert(
@@ -741,7 +743,6 @@ class CallStartEnd(ast.NodeTransformer):
 
     e = ast.Expr(value=call)
     e_src = astor.to_source(e).strip()
-    func_name = astor.to_source(call.func).strip()
     if self.patt is not None and not re.match(self.patt, e_src):
       return call
 
@@ -759,6 +760,80 @@ print(f"metap: Finished executing: {log}")
       keywords=[]
     )
     return new_call
+
+# Expand:
+# - assert isinstance(a, b) to
+#   if not isinstance(a, b):
+#     print(a)
+#     print(type(a))
+#     assert False
+# - assert a == b to
+#   if a != b:
+#     print(a)
+#     print(b)
+#     assert False
+class ExpandAsserts(ast.NodeTransformer):
+  def visit_Assert(self, ass: ast.Assert):
+    if isinstance(ass.test, ast.Compare):
+      cmp = ass.test
+      ops = cmp.ops
+      if len(ops) != 1:
+        return ass
+      op = ops[0]
+      new_op = None
+      if isinstance(op, ast.Eq):
+        new_op = ast.NotEq()
+      elif isinstance(op, ast.NotEq):
+        new_op = ast.Eq()
+      else:
+        return ass
+      # END IF #
+      if len(cmp.comparators) != 1:
+        return ass
+      right = cmp.comparators[0]
+      left = cmp.left
+      l_name = ast.Name(id="_metap_l")
+      r_name = ast.Name(id="_metap_r")
+      asgn_l = ast.Assign(targets=[l_name], value=left)
+      asgn_r = ast.Assign(targets=[r_name], value=right)
+      print_l = get_print(l_name)
+      print_r = get_print(r_name)
+      assert new_op is not None
+      new_test = ast.Compare(left=l_name, ops=[new_op],
+                             comparators=[r_name])
+      ass_f = ast.Assert(ast.Constant(value=False), msg=ass.msg)
+      if_ = ast.If(test=new_test, body=[print_l, print_r, ass_f], orelse=[])
+      return [asgn_l, asgn_r, if_]
+    elif isinstance(ass.test, ast.Call):
+      call = ass.test
+      func = call.func
+      if not isinstance(func, ast.Name):
+        return ass
+      if func.id != "isinstance":
+        return ass
+      args = call.args
+      if len(args) != 2:
+        return ass
+      obj = args[0]
+      ty = args[1]
+      var_name = ast.Name(id="_metap_obj")
+      asgn = ast.Assign(targets=[var_name], value=obj)
+      print_obj = get_print(var_name)
+      print_obj_ty = get_print(get_type_call(var_name))
+      ass_f = ast.Assert(ast.Constant(value=False), msg=ass.msg)
+      new_isinstance = ast.Call(
+        func=ast.Name(id="isinstance"),
+        args=[var_name, ty],
+        keywords=[]
+      )
+      new_test = ast.UnaryOp(op=ast.Not(), operand=new_isinstance)
+      if_ = ast.If(test=new_test,
+                   body=[print_obj, print_obj_ty, ass_f],
+                   orelse=[])
+      return [asgn, if_]
+    # END IF #
+    
+    return ass
 
 class MetaP:
   def __init__(self, filename) -> None:
@@ -799,7 +874,10 @@ class MetaP:
   def log_calls_start_end(self, patt=None):
     t = CallStartEnd(patt=patt)
     t.visit(self.ast)
-    
+
+  def expand_asserts(self):
+    t = ExpandAsserts()
+    t.visit(self.ast)
 
   # Handles anything that is required to be transformed for the code to run
   # (i.e., any code that uses metap features)

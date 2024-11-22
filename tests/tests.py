@@ -1015,5 +1015,83 @@ print(f"metap: Finished executing: 3:json.dump(find_primes(1000000), fp)")
     self.assertEqual(out, expect)
 
 
+
+
+def expand_asserts(fname):
+  mp = metap.MetaP(filename=fname)
+  mp.expand_asserts()
+  mp.dump()
+
+class ExpandAsserts(unittest.TestCase):
+  def test_neq(self):
+    src = \
+"""
+a = 2
+def foo():
+  global a
+  a = a + 1
+  return a
+
+assert foo() != 3
+"""
+
+    expect = \
+"""import metap
+a = 2
+
+
+def foo():
+  global a
+  a = a + 1
+  return a
+
+
+_metap_l = foo()
+_metap_r = 3
+if _metap_l == _metap_r:
+  print(_metap_l)
+  print(_metap_r)
+  assert False
+"""
+
+    out = boiler(src, expand_asserts)
+    self.assertEqual(out, expect)
+
+
+
+
+  def test_isisntance(self):
+    src = \
+"""
+a = 2
+def foo():
+  global a
+  a = a + 1
+  return a
+
+assert isinstance(foo(), float)
+"""
+
+    expect = \
+"""import metap
+a = 2
+
+
+def foo():
+  global a
+  a = a + 1
+  return a
+
+
+_metap_obj = foo()
+if not isinstance(_metap_obj, float):
+  print(_metap_obj)
+  print(type(_metap_obj))
+  assert False
+"""
+
+    out = boiler(src, expand_asserts)
+    self.assertEqual(out, expect)
+
 if __name__ == '__main__':
     unittest.main()
