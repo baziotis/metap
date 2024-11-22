@@ -389,7 +389,7 @@ if _metap_l == _metap_r:
   assert False
 ```
 
-## Superset of Python and Non-Optional Compilation
+## `metap` Superset of Python
 
 All the features we've seen up to now make running a `metap` client _optional_. In other words, you could just run the `test_mp.py` programs without using a client at all.
 
