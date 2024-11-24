@@ -735,8 +735,8 @@ def foo(s: Tuple[str, int, RandomClass]):
 
 
 def foo(s: Tuple[str, int, RandomClass]):
-  if not (len(s) == 3 and isinstance(s[0], str) and isinstance(s[1], int) and
-      isinstance(s[2], RandomClass)):
+  if not (isinstance(s, tuple) and (len(s) == 3 and isinstance(s[0], str) and
+      isinstance(s[1], int) and isinstance(s[2], RandomClass))):
     print(s)
     print(type(s))
     assert False
@@ -761,7 +761,8 @@ def foo(s: List[str]):
 
 
 def foo(s: List[str]):
-  if not all([isinstance(__metap_x, str) for __metap_x in s]):
+  if not (isinstance(s, list) and all([isinstance(__metap_x, str) for
+      __metap_x in s])):
     print(s)
     print(type(s))
     assert False
@@ -784,8 +785,9 @@ def foo(s:List[Optional[Tuple[str, int]]]):
 
 
 def foo(s: List[Optional[Tuple[str, int]]]):
-  if not all([(len(__metap_x) == 2 and isinstance(__metap_x[0], str) and
-      isinstance(__metap_x[1], int) or __metap_x is None) for __metap_x in s]):
+  if not (isinstance(s, list) and all([(isinstance(__metap_x, tuple) and (
+      len(__metap_x) == 2 and isinstance(__metap_x[0], str) and isinstance(
+      __metap_x[1], int)) or __metap_x is None) for __metap_x in s])):
     print(s)
     print(type(s))
     assert False
@@ -810,9 +812,10 @@ def foo(s: Optional[Tuple[List[str], List[int]]]):
 
 
 def foo(s: Optional[Tuple[List[str], List[int]]]):
-  if not (len(s) == 2 and all([isinstance(__metap_x, str) for __metap_x in
-      s[0]]) and all([isinstance(__metap_x, int) for __metap_x in s[1]]) or
-      s is None):
+  if not (isinstance(s, tuple) and (len(s) == 2 and (isinstance(s[0], list) and
+      all([isinstance(__metap_x, str) for __metap_x in s[0]])) and (
+      isinstance(s[1], list) and all([isinstance(__metap_x, int) for
+      __metap_x in s[1]]))) or s is None):
     print(s)
     print(type(s))
     assert False
@@ -894,8 +897,9 @@ def foo(a: int, b: Dict[int, Optional[str]]):
     print(a)
     print(type(a))
     assert False
-  if not all([(isinstance(_metap_k, int) and (isinstance(_metap_v, str) or 
-      _metap_v is None)) for _metap_k, _metap_v in b.items()]):
+  if not (isinstance(b, dict) and all([(isinstance(_metap_k, int) and (
+      isinstance(_metap_v, str) or _metap_v is None)) for _metap_k,
+      _metap_v in b.items()])):
     print(b)
     print(type(b))
     assert False
@@ -924,8 +928,9 @@ def foo(a: int, b: Dict[int, List[str]]):
     print(a)
     print(type(a))
     assert False
-  if not all([(isinstance(_metap_k, int) and all([isinstance(__metap_x, str
-      ) for __metap_x in _metap_v])) for _metap_k, _metap_v in b.items()]):
+  if not (isinstance(b, dict) and all([(isinstance(_metap_k, int) and (
+      isinstance(_metap_v, list) and all([isinstance(__metap_x, str) for
+      __metap_x in _metap_v]))) for _metap_k, _metap_v in b.items()])):
     print(b)
     print(type(b))
     assert False
@@ -1041,8 +1046,9 @@ def __metap_foo(s: int) -> Optional[Tuple[str, int]]:
 
 def foo(s: int) -> Optional[Tuple[str, int]]:
   __metap_retv = __metap_foo(s)
-  if not (len(__metap_retv) == 2 and isinstance(__metap_retv[0], str) and
-      isinstance(__metap_retv[1], int) or __metap_retv is None):
+  if not (isinstance(__metap_retv, tuple) and (len(__metap_retv) == 2 and
+      isinstance(__metap_retv[0], str) and isinstance(__metap_retv[1], int)
+      ) or __metap_retv is None):
     print(__metap_retv)
     print(type(__metap_retv))
     assert False

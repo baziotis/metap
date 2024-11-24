@@ -607,6 +607,8 @@ def exp_for_ann(obj, ann):
     elts = slice.elts
     assert len(elts) > 1
     
+    isinst = isinst_call(obj, ast.Name(id='tuple'))
+    
     cond_len = ast.Compare(
         left=ast.Call(
           func=ast.Name(id='len'),
@@ -625,10 +627,13 @@ def exp_for_ann(obj, ann):
       )
       curr = ast.BinOp(left=curr, op=ast.And(), right=exp_for_ann(sub, elt))
     ### END FOR ###
-    return curr
+    and_isinst = ast.BinOp(left=isinst, op=ast.And(), right=curr)
+    return and_isinst
   elif cons.id == 'List':
     # We only support single type
     assert not isinstance(slice, ast.Tuple)
+    
+    isinst = isinst_call(obj, ast.Name(id='list'))
     
     iter_el = ast.Name(id='__metap_x')
     el_ty = exp_for_ann(iter_el, slice)
@@ -641,9 +646,12 @@ def exp_for_ann(obj, ann):
       args=[list_comp],
       keywords=[]
     )
-    return all_call
+    and_ = ast.BinOp(left=isinst, op=ast.And(), right=all_call)
+    return and_
   elif cons.id == 'Dict':
     assert isinstance(slice, ast.Tuple)
+    
+    isinst = isinst_call(obj, ast.Name(id='dict'))
     
     elts = slice.elts
     assert len(elts) == 2
@@ -670,7 +678,8 @@ def exp_for_ann(obj, ann):
       args=[list_comp],
       keywords=[]
     )
-    return all_call
+    and_ = ast.BinOp(left=isinst, op=ast.And(), right=all_call)
+    return and_
   else:
     assert False  
 
