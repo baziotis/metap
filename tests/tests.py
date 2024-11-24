@@ -934,7 +934,54 @@ def foo(a: int, b: Dict[int, List[str]]):
 
     out = boiler(src, add_asserts)
     self.assertEqual(out, expect)
-    
+
+
+
+  def test_class(self):
+    src = \
+"""
+class Test:
+  def __init__(self, a: int):
+    self.a = a
+
+  def foo(self, b: int) -> str:
+    return str(self.a)
+"""
+
+    expect = \
+"""import metap
+
+
+class Test:
+
+  def __init__(self, a: int):
+    if not isinstance(a, int):
+      print(a)
+      print(type(a))
+      assert False
+    self.a = a
+
+  def __metap_foo(self, b: int) -> str:
+    if not isinstance(b, int):
+      print(b)
+      print(type(b))
+      assert False
+    return str(self.a)
+
+  def foo(self, b: int) -> str:
+    __metap_retv = self.__metap_foo(b)
+    if not isinstance(__metap_retv, str):
+      print(__metap_retv)
+      print(type(__metap_retv))
+      assert False
+    return __metap_retv
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+
+
+
 
 
 

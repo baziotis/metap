@@ -716,6 +716,12 @@ class AssertTransformer(ast.NodeTransformer):
     ifs = []
     
     args = fdef.args.args
+    
+    in_class = False
+    if len(args) > 0 and args[0].arg == 'self':
+      args = args[1:]
+      in_class = True
+    
     for arg in args:
       assert isinstance(arg, ast.arg)
       ann = arg.annotation
@@ -733,11 +739,14 @@ class AssertTransformer(ast.NodeTransformer):
       helper_name = '__metap_'+fdef.name
       helper_func.name = helper_name
       helper_func.body = new_body
+      how_to_call = ast.Name(id=helper_name)
+      if in_class:
+        how_to_call = ast.Attribute(ast.Name(id='self'), attr=helper_name)
       call_helper = ast.Call(
-        func=ast.Name(id=helper_name),
+        func=how_to_call,
         args=[
           ast.Name(id=arg.arg, ctx=ast.Load())
-          for arg in fdef.args.args
+          for arg in args
         ],
         keywords=[]
       )
