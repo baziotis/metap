@@ -874,6 +874,66 @@ def foo(s: None):
 
     out = boiler(src, add_asserts)
     self.assertEqual(out, expect)
+
+
+
+
+  def test_dict(self):
+    src = \
+"""
+def foo(a: int, b: Dict[int, Optional[str]]):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(a: int, b: Dict[int, Optional[str]]):
+  if not isinstance(a, int):
+    print(a)
+    print(type(a))
+    assert False
+  if not all([(isinstance(_metap_k, int) and (isinstance(_metap_v, str) or 
+      _metap_v is None)) for _metap_k, _metap_v in b.items()]):
+    print(b)
+    print(type(b))
+    assert False
+  pass
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+
+
+
+
+  def test_dict2(self):
+    src = \
+"""
+def foo(a: int, b: Dict[int, List[str]]):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(a: int, b: Dict[int, List[str]]):
+  if not isinstance(a, int):
+    print(a)
+    print(type(a))
+    assert False
+  if not all([(isinstance(_metap_k, int) and all([isinstance(__metap_x, str
+      ) for __metap_x in _metap_v])) for _metap_k, _metap_v in b.items()]):
+    print(b)
+    print(type(b))
+    assert False
+  pass
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
     
 
 

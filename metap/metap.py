@@ -585,7 +585,7 @@ def exp_for_ann(obj, ann):
   slice = sub.slice
   cons = sub.value
   assert isinstance(cons, ast.Name)
-  acceptable_constructors = ['Optional', 'Union', 'Tuple', 'List']
+  acceptable_constructors = ['Optional', 'Union', 'Tuple', 'List', 'Dict']
   assert cons.id in acceptable_constructors
   if cons.id == 'Optional':
     is_ty = exp_for_ann(obj, slice)
@@ -635,6 +635,35 @@ def exp_for_ann(obj, ann):
     list_comp = ast.ListComp(
       elt=el_ty,
       generators=[ast.comprehension(target=iter_el, iter=obj, ifs=[])]
+    )
+    all_call = ast.Call(
+      func=ast.Name(id='all'),
+      args=[list_comp],
+      keywords=[]
+    )
+    return all_call
+  elif cons.id == 'Dict':
+    assert isinstance(slice, ast.Tuple)
+    
+    elts = slice.elts
+    assert len(elts) == 2
+    key_ann = elts[0]
+    val_ann = elts[1]
+    
+    key_iter = ast.Name(id='_metap_k')
+    val_iter = ast.Name(id='_metap_v')
+    iter = ast.Tuple(elts=[key_iter, val_iter])
+    key_ty = exp_for_ann(key_iter, key_ann)
+    val_ty = exp_for_ann(val_iter, val_ann)
+    and_ = ast.BinOp(left=key_ty, op=ast.And(), right=val_ty)
+    items = ast.Call(
+      func=ast.Attribute(value=obj, attr='items'),
+      args=[],
+      keywords=[]
+    )
+    list_comp = ast.ListComp(
+      elt=and_,
+      generators=[ast.comprehension(target=iter, iter=items, ifs=[])]
     )
     all_call = ast.Call(
       func=ast.Name(id='all'),
