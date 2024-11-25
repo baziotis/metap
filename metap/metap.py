@@ -574,7 +574,7 @@ def isnone_cond(obj):
                      comparators=[ast.Constant(value=None)])
 
 def handle_non_sub(obj, ann):
-  if isinstance(ann, ast.Name) and (ann.id in ["List", "Dict", "Tuple"]):
+  if isinstance(ann, ast.Name) and (ann.id in ["List", "Dict", "Tuple", "Type"]):
     ty = ast.Name(id=ann.id.lower())
     return isinst_call(obj, ty)
   else:
@@ -597,7 +597,7 @@ def exp_for_ann(obj, ann, id_curr):
   slice = sub.slice
   cons = sub.value
   assert isinstance(cons, ast.Name)
-  acceptable_constructors = ['Optional', 'Union', 'Tuple', 'List', 'Dict']
+  acceptable_constructors = ['Optional', 'Union', 'Tuple', 'List', 'Dict', 'Type']
   assert cons.id in acceptable_constructors
   if cons.id == 'Optional':
     is_ty = exp_for_ann(obj, slice, id_curr)
@@ -697,6 +697,10 @@ def exp_for_ann(obj, ann, id_curr):
     )
     and_ = ast.BinOp(left=isinst, op=ast.And(), right=all_call)
     return and_
+  elif cons.id == 'Type':
+    assert isinstance(slice, ast.Name)
+    is_ = ast.BinOp(left=obj, op=ast.Is(), right=slice)
+    return is_
   else:
     assert False  
 

@@ -1192,6 +1192,57 @@ def foo(sch: Dict[str, List[Tuple[str, Union[int, float, str]]]]):
 
 
 
+
+
+
+  def test_type(self):
+    src = \
+"""
+def foo(t: Type[int]):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(t: Type[int]):
+  if not t is int:
+    print(t)
+    print(type(t))
+    assert False
+  pass
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+
+
+
+
+  def test_type2(self):
+    src = \
+"""
+def foo(t: Type):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(t: Type):
+  if not isinstance(t, type):
+    print(t)
+    print(type(t))
+    assert False
+  pass
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+
+
 class LogCallsStartEnd(unittest.TestCase):
   def test_nested(self):
     src = \
