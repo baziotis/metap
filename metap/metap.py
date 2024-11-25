@@ -572,13 +572,20 @@ def isnone_cond(obj):
   return ast.Compare(obj, ops=[ast.Is()],
                      comparators=[ast.Constant(value=None)])
 
+def handle_non_sub(obj, ann):
+  if isinstance(ann, ast.Name) and (ann.id in ["List", "Dict", "Tuple"]):
+    ty = ast.Name(id=ann.id.lower())
+    return isinst_call(obj, ty)
+  else:
+    return isinst_call(obj, ann)
+
 # Generate expression that goes into an assert that `obj` is of type `ann`
 def exp_for_ann(obj, ann):
-  if isinstance(ann, ast.Name):
-    return isinst_call(obj, ann)
-  
   if isinstance(ann, ast.Constant):
     return ast.Compare(left=obj, ops=[ast.Eq()], comparators=[ann])
+  
+  if not isinstance(ann, ast.Subscript):
+    return handle_non_sub(obj, ann)
   
   assert isinstance(ann, ast.Subscript)
   sub = ann

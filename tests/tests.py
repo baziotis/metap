@@ -988,6 +988,51 @@ class Test:
 
 
 
+  def test_non_sub(self):
+    src = \
+"""
+def foo(a: pd.DataFrame):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(a: pd.DataFrame):
+  if not isinstance(a, pd.DataFrame):
+    print(a)
+    print(type(a))
+    assert False
+  pass
+"""
+
+
+  def test_non_sub2(self):
+    src = \
+"""
+def foo(a: List):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(a: List):
+  if not isinstance(a, list):
+    print(a)
+    print(type(a))
+    assert False
+  pass
+"""
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+
+
+
+
 
 
 
