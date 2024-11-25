@@ -36,7 +36,6 @@ def compose_retif_and_logret(fname):
 def add_asserts(fname):
   mp = metap.MetaP(filename=fname)
   mp.add_asserts()
-  mp.compile()
   mp.dump()
 
 def log_calls_start_end1(fname):
@@ -62,6 +61,29 @@ def boiler(src, mid_func):
   os.remove(fname)
   os.remove(out_fname)
 
+  return out
+
+def typedef_boiler(src, typedefs):
+  mp_fname = 'test_mp.py'
+  with open(mp_fname, 'w') as fp:
+    fp.write(src)
+  
+  td_fname = 'typedefs.py'
+  with open(td_fname, 'w') as fp:
+    fp.write(typedefs)
+  
+  out_fname = 'test.py'
+  mp = metap.MetaP(filename=mp_fname)
+  mp.add_asserts(typedefs_path=td_fname)
+  mp.dump(filename=out_fname)
+
+  with open(out_fname, 'r') as fp:
+    out = fp.read()
+
+  os.remove(mp_fname)
+  os.remove(td_fname)
+  os.remove(out_fname)
+  
   return out
 
 class LogReturn(unittest.TestCase):
@@ -761,8 +783,8 @@ def foo(s: List[str]):
 
 
 def foo(s: List[str]):
-  if not (isinstance(s, list) and all([isinstance(__metap_x, str) for
-      __metap_x in s])):
+  if not (isinstance(s, list) and all([isinstance(__metap_x1, str) for
+      __metap_x1 in s])):
     print(s)
     print(type(s))
     assert False
@@ -785,9 +807,10 @@ def foo(s:List[Optional[Tuple[str, int]]]):
 
 
 def foo(s: List[Optional[Tuple[str, int]]]):
-  if not (isinstance(s, list) and all([(isinstance(__metap_x, tuple) and (
-      len(__metap_x) == 2 and isinstance(__metap_x[0], str) and isinstance(
-      __metap_x[1], int)) or __metap_x is None) for __metap_x in s])):
+  if not (isinstance(s, list) and all([(isinstance(__metap_x1, tuple) and (
+      len(__metap_x1) == 2 and isinstance(__metap_x1[0], str) and
+      isinstance(__metap_x1[1], int)) or __metap_x1 is None) for __metap_x1 in
+      s])):
     print(s)
     print(type(s))
     assert False
@@ -813,9 +836,9 @@ def foo(s: Optional[Tuple[List[str], List[int]]]):
 
 def foo(s: Optional[Tuple[List[str], List[int]]]):
   if not (isinstance(s, tuple) and (len(s) == 2 and (isinstance(s[0], list) and
-      all([isinstance(__metap_x, str) for __metap_x in s[0]])) and (
-      isinstance(s[1], list) and all([isinstance(__metap_x, int) for
-      __metap_x in s[1]]))) or s is None):
+      all([isinstance(__metap_x1, str) for __metap_x1 in s[0]])) and (
+      isinstance(s[1], list) and all([isinstance(__metap_x2, int) for
+      __metap_x2 in s[1]]))) or s is None):
     print(s)
     print(type(s))
     assert False
@@ -823,6 +846,7 @@ def foo(s: Optional[Tuple[List[str], List[int]]]):
 """
 
     out = boiler(src, add_asserts)
+    self.maxDiff = None
     self.assertEqual(out, expect)
 
 
@@ -897,9 +921,9 @@ def foo(a: int, b: Dict[int, Optional[str]]):
     print(a)
     print(type(a))
     assert False
-  if not (isinstance(b, dict) and all([(isinstance(_metap_k, int) and (
-      isinstance(_metap_v, str) or _metap_v is None)) for _metap_k,
-      _metap_v in b.items()])):
+  if not (isinstance(b, dict) and all([(isinstance(_metap_k1, int) and (
+      isinstance(_metap_v2, str) or _metap_v2 is None)) for _metap_k1,
+      _metap_v2 in b.items()])):
     print(b)
     print(type(b))
     assert False
@@ -928,9 +952,9 @@ def foo(a: int, b: Dict[int, List[str]]):
     print(a)
     print(type(a))
     assert False
-  if not (isinstance(b, dict) and all([(isinstance(_metap_k, int) and (
-      isinstance(_metap_v, list) and all([isinstance(__metap_x, str) for
-      __metap_x in _metap_v]))) for _metap_k, _metap_v in b.items()])):
+  if not (isinstance(b, dict) and all([(isinstance(_metap_k1, int) and (
+      isinstance(_metap_v2, list) and all([isinstance(__metap_x3, str) for
+      __metap_x3 in _metap_v2]))) for _metap_k1, _metap_v2 in b.items()])):
     print(b)
     print(type(b))
     assert False
@@ -1006,6 +1030,9 @@ def foo(a: pd.DataFrame):
     assert False
   pass
 """
+
+    out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
 
 
   def test_non_sub2(self):
@@ -1122,6 +1149,45 @@ if not (isinstance(a, int) or a is None):
 """
 
     out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+
+
+
+
+  def test_typedefs(self):
+    typedefs = \
+"""
+TableName = str
+ColName = str
+ColType = Union[int, float, str]
+Col = Tuple[ColName, ColType]
+Schema = Dict[TableName, List[Col]]
+"""
+
+    src = \
+"""
+def foo(sch: Schema):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(sch: Dict[str, List[Tuple[str, Union[int, float, str]]]]):
+  if not (isinstance(sch, dict) and all([(isinstance(_metap_k1, str) and (
+      isinstance(_metap_v2, list) and all([(isinstance(__metap_x3, tuple) and
+      (len(__metap_x3) == 2 and isinstance(__metap_x3[0], str) and (
+      isinstance(__metap_x3[1], int) or isinstance(__metap_x3[1], float) or
+      isinstance(__metap_x3[1], str)))) for __metap_x3 in _metap_v2]))) for
+      _metap_k1, _metap_v2 in sch.items()])):
+    print(sch)
+    print(type(sch))
+    assert False
+  pass
+"""
+
+    out = typedef_boiler(src, typedefs)
     self.assertEqual(out, expect)
 
 

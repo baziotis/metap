@@ -3,6 +3,7 @@ import os
 from contextlib import contextmanager
 import copy
 import re
+from typing import Dict, List, Optional
 
 ### HELPERS called from the generated program ###
 
@@ -578,9 +579,13 @@ def handle_non_sub(obj, ann):
     return isinst_call(obj, ty)
   else:
     return isinst_call(obj, ann)
+  
+def ann_id(curr: List[int]):
+  curr[0] = curr[0] + 1
+  return curr[0]
 
 # Generate expression that goes into an assert that `obj` is of type `ann`
-def exp_for_ann(obj, ann):
+def exp_for_ann(obj, ann, id_curr):
   if isinstance(ann, ast.Constant):
     return ast.Compare(left=obj, ops=[ast.Eq()], comparators=[ann])
   
@@ -595,20 +600,25 @@ def exp_for_ann(obj, ann):
   acceptable_constructors = ['Optional', 'Union', 'Tuple', 'List', 'Dict']
   assert cons.id in acceptable_constructors
   if cons.id == 'Optional':
-    is_ty = exp_for_ann(obj, slice)
+    is_ty = exp_for_ann(obj, slice, id_curr)
     is_none = isnone_cond(obj)
     or_ = ast.BinOp(left=is_ty, op=ast.Or(), right=is_none)
     return or_ 
   elif cons.id == 'Union':
     assert isinstance(slice, ast.Tuple)
     elts = slice.elts
-    assert len(elts) == 2
+    assert len(elts) >= 2
     l = elts[0]
     r = elts[1]
-    is_l = exp_for_ann(obj, l)
-    is_r = exp_for_ann(obj, r)
+    is_l = exp_for_ann(obj, l, id_curr)
+    is_r = exp_for_ann(obj, r, id_curr)
     or_ = ast.BinOp(left=is_l, op=ast.Or(), right=is_r)
-    return or_
+    curr = or_
+    
+    for i, elt in enumerate(elts[2:]):
+      check = exp_for_ann(obj, elt, id_curr)
+      curr = ast.BinOp(left=curr, op=ast.Or(), right=check)
+    return curr
   elif cons.id == 'Tuple':
     assert isinstance(slice, ast.Tuple)
     elts = slice.elts
@@ -632,7 +642,7 @@ def exp_for_ann(obj, ann):
         value=obj,
         slice=ast.Constant(value=i)
       )
-      curr = ast.BinOp(left=curr, op=ast.And(), right=exp_for_ann(sub, elt))
+      curr = ast.BinOp(left=curr, op=ast.And(), right=exp_for_ann(sub, elt, id_curr))
     ### END FOR ###
     and_isinst = ast.BinOp(left=isinst, op=ast.And(), right=curr)
     return and_isinst
@@ -642,8 +652,8 @@ def exp_for_ann(obj, ann):
     
     isinst = isinst_call(obj, ast.Name(id='list'))
     
-    iter_el = ast.Name(id='__metap_x')
-    el_ty = exp_for_ann(iter_el, slice)
+    iter_el = ast.Name(id='__metap_x' + str(ann_id(id_curr)))
+    el_ty = exp_for_ann(iter_el, slice, id_curr)
     list_comp = ast.ListComp(
       elt=el_ty,
       generators=[ast.comprehension(target=iter_el, iter=obj, ifs=[])]
@@ -665,11 +675,11 @@ def exp_for_ann(obj, ann):
     key_ann = elts[0]
     val_ann = elts[1]
     
-    key_iter = ast.Name(id='_metap_k')
-    val_iter = ast.Name(id='_metap_v')
+    key_iter = ast.Name(id='_metap_k' + str(ann_id(id_curr)))
+    val_iter = ast.Name(id='_metap_v' + str(ann_id(id_curr)))
     iter = ast.Tuple(elts=[key_iter, val_iter])
-    key_ty = exp_for_ann(key_iter, key_ann)
-    val_ty = exp_for_ann(val_iter, val_ann)
+    key_ty = exp_for_ann(key_iter, key_ann, id_curr)
+    val_ty = exp_for_ann(val_iter, val_ann, id_curr)
     and_ = ast.BinOp(left=key_ty, op=ast.And(), right=val_ty)
     items = ast.Call(
       func=ast.Attribute(value=obj, attr='items'),
@@ -697,7 +707,7 @@ def get_type_call(obj):
     keywords=[]
   )
 
-def ann_if(obj, ann):
+def ann_if(obj, ann, id_curr):
   type_call = get_type_call(obj)
   print_ty = get_print(type_call)
   print_obj = get_print(obj)
@@ -705,20 +715,24 @@ def ann_if(obj, ann):
     test=ast.Constant(value=False)
   )
   if_ = ast.If(
-    test=ast.UnaryOp(op=ast.Not(), operand=exp_for_ann(obj, ann)),
+    test=ast.UnaryOp(op=ast.Not(), operand=exp_for_ann(obj, ann, id_curr)),
     body=[print_obj, print_ty, assert_f],
     orelse=[]
   )
   return if_
 
 class AssertTransformer(ast.NodeTransformer):
+  def __init__(self):
+    ast.NodeTransformer.__init__(self)
+    self.id_curr = [0]
+
   def visit_AnnAssign(self, node: ast.AnnAssign):
     target = node.target
     if not isinstance(target, ast.Name):
       return node
 
     ann = node.annotation
-    if_ = ann_if(target, ann)
+    if_ = ann_if(target, ann, self.id_curr)
     return [node, if_]
 
   def visit_FunctionDef(self, fdef:ast.FunctionDef):
@@ -743,7 +757,7 @@ class AssertTransformer(ast.NodeTransformer):
       ann = arg.annotation
       if ann is not None:
         id_ = ast.Name(id=arg.arg)
-        if_ = ann_if(id_, ann)
+        if_ = ann_if(id_, ann, self.id_curr)
         ifs.append(if_)
     ### END FOR ###
     
@@ -774,13 +788,55 @@ class AssertTransformer(ast.NodeTransformer):
       ret = ast.Return(
         value=ret_var
       )
-      if_ = ann_if(ret_var, ret_ann)
+      if_ = ann_if(ret_var, ret_ann, self.id_curr)
       fdef.body = [asgn, if_, ret]
       return [helper_func, fdef]
     else:
       fdef.body = new_body
       return fdef
 
+class TypedefGather(ast.NodeTransformer):
+  def __init__(self):
+    ast.NodeTransformer.__init__(self)
+    self.typedefs = dict()
+    
+  def visit_Assign(self, asgn: ast.Assign):
+    targets = asgn.targets
+    assert len(targets) == 1
+    name_node = targets[0]
+    assert isinstance(name_node, ast.Name)
+    typename = name_node.id
+    new_val = self.visit(asgn.value)
+    self.typedefs[typename] = new_val
+
+    return ast.Assign(targets=[name_node], value=new_val)
+
+  def visit_Name(self, name_node: ast.Name):
+    known = {'str', 'float', 'int', 'Dict', 'List', 'Tuple', 'Optional', 'Union'}
+    name = name_node.id
+    # This logic requires that we don't have forward references, which we
+    # assume.
+    if name not in known:
+      if name in self.typedefs:
+        assert self.typedefs[name] is not None
+        return self.typedefs[name]
+      # END IF #
+    # END IF #
+    return name_node
+
+
+class TypedefTransform(ast.NodeTransformer):
+  def __init__(self, typedefs: Dict[str, ast.AST]):
+    ast.NodeTransformer.__init__(self)
+    self.typedefs = typedefs
+
+  def visit_Name(self, name_node: ast.Name):
+    name = name_node.id
+    if name in self.typedefs:
+      return self.typedefs[name]
+     # END IF #
+    # END IF #
+    return name_node
 
 
 class CallStartEnd(ast.NodeTransformer):
@@ -921,7 +977,17 @@ class MetaP:
     transformer = LogIfs(range=range, indent=indent)
     transformer.visit(self.ast)
     
-  def add_asserts(self):
+  def add_asserts(self, typedefs_path=None):
+    if typedefs_path is not None:
+      with open(typedefs_path, 'r') as fp:
+        tdef_ast = ast.parse(fp.read())
+      # END WITH
+      t = TypedefGather()
+      t.visit(tdef_ast)
+
+      t2 = TypedefTransform(t.typedefs)
+      t2.visit(self.ast)
+    # END IF #
     t = AssertTransformer()
     t.visit(self.ast)
   
