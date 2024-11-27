@@ -726,8 +726,9 @@ def ann_if(obj, ann, id_curr):
   return if_
 
 class AssertTransformer(ast.NodeTransformer):
-  def __init__(self):
+  def __init__(self, skip_funcs: Optional[List[str]]):
     ast.NodeTransformer.__init__(self)
+    self.skip_funcs = skip_funcs
     self.id_curr = [0]
 
   def visit_AnnAssign(self, node: ast.AnnAssign):
@@ -740,6 +741,9 @@ class AssertTransformer(ast.NodeTransformer):
     return [node, if_]
 
   def visit_FunctionDef(self, fdef:ast.FunctionDef):
+    if self.skip_funcs is not None and fdef.name in self.skip_funcs:
+      return fdef
+
     if (len(fdef.decorator_list) != 0 or
         fdef.args.vararg is not None or
         len(fdef.args.posonlyargs) != 0 or
@@ -981,7 +985,7 @@ class MetaP:
     transformer = LogIfs(range=range, indent=indent)
     transformer.visit(self.ast)
     
-  def add_asserts(self, typedefs_path=None):
+  def add_asserts(self, typedefs_path=None, skip_funcs: Optional[List[str]]=None):
     if typedefs_path is not None:
       with open(typedefs_path, 'r') as fp:
         tdef_ast = ast.parse(fp.read())
@@ -992,7 +996,7 @@ class MetaP:
       t2 = TypedefTransform(t.typedefs)
       t2.visit(self.ast)
     # END IF #
-    t = AssertTransformer()
+    t = AssertTransformer(skip_funcs)
     t.visit(self.ast)
   
   def log_calls_start_end(self, patt=None):

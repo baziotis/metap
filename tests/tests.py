@@ -38,6 +38,11 @@ def add_asserts(fname):
   mp.add_asserts()
   mp.dump()
 
+def add_asserts_skip(fname):
+  mp = metap.MetaP(filename=fname)
+  mp.add_asserts(skip_funcs=["foo"])
+  mp.dump()
+
 def log_calls_start_end1(fname):
   mp = metap.MetaP(filename=fname)
   mp.log_calls_start_end(patt=r'find_primes')
@@ -1240,6 +1245,27 @@ def foo(t: Type):
 """
 
     out = boiler(src, add_asserts)
+    self.assertEqual(out, expect)
+
+
+
+
+  def test_skip(self):
+    src = \
+"""
+def foo(t: Type):
+  pass
+"""
+
+    expect = \
+"""import metap
+
+
+def foo(t: Type):
+  pass
+"""
+
+    out = boiler(src, add_asserts_skip)
     self.assertEqual(out, expect)
 
 
