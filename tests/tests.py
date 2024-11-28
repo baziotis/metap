@@ -22,7 +22,7 @@ def break_func(fname):
   mp.log_breaks()
   mp.dump()
 
-def retif_func(fname):
+def just_compile(fname):
   mp = metap.MetaP(filename=fname)
   mp.compile()
   mp.dump()
@@ -319,7 +319,7 @@ def main(xs):
       return _metap_ret
 """
     
-    out = boiler(src, retif_func)
+    out = boiler(src, just_compile)
     self.assertEqual(out, expect)
     
 
@@ -357,7 +357,42 @@ def main(xs):
       return None
 """
     
-    out = boiler(src, retif_func)
+    out = boiler(src, just_compile)
+    self.assertEqual(out, expect)
+
+
+
+
+
+
+class VPrint(unittest.TestCase):
+  def test_simple(self):
+    src = \
+"""
+_vprint(a)
+"""
+
+    expect = \
+"""import metap
+print('a:', a)
+"""
+    
+    out = boiler(src, just_compile)
+    self.assertEqual(out, expect)
+
+
+  def test_call(self):
+    src = \
+"""
+_vprint(foo())
+"""
+
+    expect = \
+"""import metap
+print('foo():', foo())
+"""
+    
+    out = boiler(src, just_compile)
     self.assertEqual(out, expect)
 
 

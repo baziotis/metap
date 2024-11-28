@@ -264,14 +264,17 @@ class NecessaryTransformer(ast.NodeTransformer):
   # __ret_ifnn and __ret_ifn
   def visit_Expr(self, e):
     if not isinstance(e.value, ast.Call):
+      self.generic_visit(e)
       return e
     call = e.value
     func = call.func
     if not isinstance(func, ast.Name):
+      self.generic_visit(e)
       return e
     
     ret_funcs = ['__ret_ifnn', '__ret_ifn']
     if func.id not in ret_funcs:
+      self.generic_visit(e)
       return e
 
     assert len(call.args) == 1
@@ -306,6 +309,7 @@ class NecessaryTransformer(ast.NodeTransformer):
   # Verifier that we have actually changed every call
   def visit_Call(self, call: ast.Call):
     if not isinstance(call.func, ast.Name):
+      self.generic_visit(call)
       return call
     
     funcs = ['__ret_ifn', '__ret_ifnn', '_cvar']
@@ -327,6 +331,19 @@ __metap_total_ns = __metap_end_ns - __metap_start_ns
       new_call = ast.Call(
         func=ast.Attribute(value=ast.Name(id="metap"), attr='time_exec'),
         args=[ast.Constant(value=code_to_exec), globals_call()],
+        keywords=[]
+      )
+      return new_call
+    elif call.func.id == '_vprint':
+      args = call.args
+      assert len(args) == 1
+      e = ast.Expr(value=args[0])
+      arg_s = astor.to_source(e).strip()
+      print_arg0 = ast.Constant(value=f"{arg_s}:")
+      print_arg1 = args[0]
+      new_call = ast.Call(
+        func=ast.Name(id="print"),
+        args=[print_arg0, print_arg1],
         keywords=[]
       )
       return new_call
