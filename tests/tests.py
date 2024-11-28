@@ -53,6 +53,11 @@ def log_calls_start_end2(fname):
   mp.log_calls_start_end(patt=r'.*json\.dump')
   mp.dump()
 
+def log_calls_start_end3(fname):
+  mp = metap.MetaP(filename=fname)
+  mp.log_calls_start_end()
+  mp.dump()
+
 def boiler(src, mid_func):
   fname = 'test.py'
   with open(fname, 'w') as fp:
@@ -1270,6 +1275,31 @@ def foo(t: Type):
 
 
 class LogCallsStartEnd(unittest.TestCase):
+  def test_nested_calls(self):
+    src=\
+"""
+def foo():
+  return f"{bar(baz())}"
+"""
+    expect = \
+'''import metap
+
+
+def foo():
+  return f"""{metap.log_start_end(
+  print('metap: Started: 3:bar'), bar(metap.log_start_end(
+  print('metap: Started: 3:baz'), baz(), 
+  print('metap: Finished: 3:baz'))), 
+  print('metap: Finished: 3:bar'))}"""
+'''
+
+    out = boiler(src, log_calls_start_end3)
+    self.assertEqual(out, expect)
+
+
+
+
+
   def test_nested(self):
     src = \
 """
@@ -1280,13 +1310,9 @@ with open('d.json', 'w') as fp:
     expect = \
 """import metap
 with open('d.json', 'w') as fp:
-  json.dump(metap.simple_exec(
-      \"""
-print(f"metap: Started executing: 3:find_primes(1000000)")
-__metap_res = find_primes(1000000)
-print(f"metap: Finished executing: 3:find_primes(1000000)")
-\"""
-      , globals()), fp)
+  json.dump(metap.log_start_end(
+  print('metap: Started: 3:find_primes'), find_primes(1000000), 
+  print('metap: Finished: 3:find_primes')), fp)
 """
 
     out = boiler(src, log_calls_start_end1)
@@ -1303,13 +1329,9 @@ with open('d.json', 'w') as fp:
     expect = \
 """import metap
 with open('d.json', 'w') as fp:
-  metap.simple_exec(
-      \"""
-print(f"metap: Started executing: 3:json.dump(find_primes(1000000), fp)")
-__metap_res = json.dump(find_primes(1000000), fp)
-print(f"metap: Finished executing: 3:json.dump(find_primes(1000000), fp)")
-\"""
-      , globals())
+  metap.log_start_end(
+  print('metap: Started: 3:json.dump'), json.dump(find_primes(1000000), fp), 
+  print('metap: Finished: 3:json.dump'))
 """
 
     out = boiler(src, log_calls_start_end2)

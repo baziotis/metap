@@ -47,14 +47,13 @@ def time_exec(code, globals_):
   assert '__metap_total_ns' in globals_
   return globals_['__metap_res'], globals_['__metap_total_ns']
 
-def simple_exec(code, globals_):
-  exec(code, globals_)
-  assert '__metap_res' in globals_
-  return globals_['__metap_res']
+def log_start_end(started_print, val, finished_print):
+  assert started_print is None
+  assert finished_print is None
+  return val
 
 
 ### END HELPERS ###
-
 
 def fmt_log_info(log_info):
   res = "metap::"
@@ -209,6 +208,14 @@ class LogCallSite(ast.NodeTransformer):
 def globals_call():
   call = ast.Call(
     func=ast.Name(id="globals"),
+    args=[],
+    keywords=[]
+  )
+  return call
+
+def locals_call():
+  call = ast.Call(
+    func=ast.Name(id="locals"),
     args=[],
     keywords=[]
   )
@@ -856,6 +863,10 @@ class CallStartEnd(ast.NodeTransformer):
     # TODO: Add filename
     assert hasattr(call, 'lineno')
     lineno = call.lineno
+
+    # This is more difficult than I thought. I tried calling a different
+    # function that used exec() with globals() and locals() but that didn't
+    # work.
     
     self.generic_visit(call)
 
@@ -864,19 +875,22 @@ class CallStartEnd(ast.NodeTransformer):
     if self.patt is not None and not re.match(self.patt, e_src):
       return call
 
-    # TODO: We may have a problem here if `e_src` has double strings. Can it?
-    # It comes from astor.to_source() which uses single quotes.
-    log = '{}:{}'.format(lineno, e_src)
-    code_to_exec = f"""
-print(f"metap: Started executing: {log}")
-__metap_res = {e_src}
-print(f"metap: Finished executing: {log}")
-"""
+    log = f'{lineno}:{astor.to_source(call.func).strip()}'
+
+    started_log = f"metap: Started: {log}"
+    finished_log = f"metap: Finished: {log}"
+    started_print = get_print_str(started_log)
+    finished_print = get_print_str(finished_log)
+
     new_call = ast.Call(
-      func=ast.Attribute(value=ast.Name(id="metap"), attr='simple_exec'),
-      args=[ast.Constant(value=code_to_exec), globals_call()],
+      func=ast.Attribute(value=ast.Name(id="metap"), attr='log_start_end'),
+      args=[started_print, call, finished_print],
       keywords=[]
     )
+    # print(astor.dump_tree(new_call, indentation="  "))
+    # print('******')
+    # # print(astor.to_source(new_call, indent_with="  "))
+    # print('--------------------------------------------')
     return new_call
 
 # Expand:
@@ -958,6 +972,8 @@ class MetaP:
     self.filename = filename
     with open(filename, 'r') as fp:
       self.ast = ast.parse(fp.read())
+    
+    self.log_se_called = False
 
   def log_returns(self, include_fname=False, range=[]):
     walker = LogReturnWalker(include_fname=include_fname,
@@ -1000,6 +1016,7 @@ class MetaP:
     t.visit(self.ast)
   
   def log_calls_start_end(self, patt=None):
+    self.log_se_called = True
     t = CallStartEnd(patt=patt)
     t.visit(self.ast)
 
@@ -1020,6 +1037,13 @@ class MetaP:
     # Add an import to metap on the top
     self.ast.body.insert(0, ast.Import(names=[ast.Name(id="metap")]))
 
+    maxline=79
+    if self.log_se_called:
+      # astor fails with all the craziness by log_calls_start_end(). To fix it,
+      # we allow too long lines. Note that this requires baziotis/astor version.
+      # The upstream astor doesn't allow to pass `maxline` to `to_source()`
+      maxline=10_000
+
     with open(filename, 'w') as fp:
-      src = astor.to_source(self.ast, indent_with=' ' * 2)
+      src = astor.to_source(self.ast, indent_with=' ' * 2, maxline=maxline)
       fp.write(src)
