@@ -876,14 +876,18 @@ class TypedefTransform(ast.NodeTransformer):
 
 
 class CallStartEnd(ast.NodeTransformer):
-  def __init__(self, patt=None):
+  def __init__(self, patt, range):
     ast.NodeTransformer.__init__(self)
     self.patt = patt
+    self.range = range
 
   def visit_Call(self, call: ast.Call):
     # TODO: Add filename
     assert hasattr(call, 'lineno')
     lineno = call.lineno
+
+    if not in_range(lineno, self.range):
+      return call
 
     # This is more difficult than I thought. I tried calling a different
     # function that used exec() with globals() and locals() but that didn't
@@ -1036,9 +1040,9 @@ class MetaP:
     t = AssertTransformer(skip_funcs)
     t.visit(self.ast)
   
-  def log_calls_start_end(self, patt=None):
+  def log_calls_start_end(self, patt=None, range=[]):
     self.log_se_called = True
-    t = CallStartEnd(patt=patt)
+    t = CallStartEnd(patt=patt, range=range)
     t.visit(self.ast)
 
   def expand_asserts(self):
