@@ -133,9 +133,12 @@ def get_print_str(arg:str):
 
   return get_print(ast.Constant(value=arg))
 
-def break_cont(cur_node, kind):
+def break_cont(cur_node, kind, range):
   assert hasattr(cur_node, 'lineno')
   lineno = cur_node.lineno
+
+  if not in_range(lineno, range):
+    return cur_node
 
   log_info = {"name": kind}
   log_info["ln"] = lineno
@@ -147,19 +150,20 @@ def break_cont(cur_node, kind):
   return [print_before, cur_node]
 
 class LogBreakCont(ast.NodeTransformer):
-  def __init__(self, kind):
+  def __init__(self, kind, range):
     ast.NodeTransformer.__init__(self)
     self.kind = kind
+    self.range = range
 
   def visit_Continue(self, node):
     if self.kind == "Continue":
-      return break_cont(node, self.kind)
+      return break_cont(node, self.kind, self.range)
     else:
       return node
 
   def visit_Break(self, node):
     if self.kind == "Break":
-      return break_cont(node, self.kind)
+      return break_cont(node, self.kind, self.range)
     else:
       return node
 
@@ -998,12 +1002,12 @@ class MetaP:
                              range=range)
     walker.walk(self.ast)
 
-  def log_breaks(self):
-    transformer = LogBreakCont("Break")
+  def log_breaks(self, range=[]):
+    transformer = LogBreakCont("Break", range)
     transformer.visit(self.ast)
   
-  def log_continues(self):
-    transformer = LogBreakCont("Continue")
+  def log_continues(self, range=[]):
+    transformer = LogBreakCont("Continue", range)
     transformer.visit(self.ast)
   
   def log_calls(self, range=[]):
