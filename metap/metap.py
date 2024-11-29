@@ -334,7 +334,7 @@ __metap_total_ns = __metap_end_ns - __metap_start_ns
         keywords=[]
       )
       return new_call
-    elif call.func.id == '_vprint':
+    elif call.func.id == '_mprint':
       args = call.args
       assert len(args) == 1
       e = ast.Expr(value=args[0])

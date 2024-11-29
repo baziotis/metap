@@ -369,7 +369,7 @@ class VPrint(unittest.TestCase):
   def test_simple(self):
     src = \
 """
-_vprint(a)
+_mprint(a)
 """
 
     expect = \
@@ -384,7 +384,7 @@ print('a:', a)
   def test_call(self):
     src = \
 """
-_vprint(foo())
+_mprint(foo())
 """
 
     expect = \
