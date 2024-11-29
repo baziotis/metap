@@ -7,11 +7,8 @@ def helper(n):
 
 def foo(ns):
   for n in ns:
-    __ret_ifnn(helper(n))
+    _ret_ifnn(helper(n))
   ### END FOR ###
   return None
 
-def main(xs):
-  for x in xs:
-    __ret_ifnn(foo(x))
-  ### END FOR ###
+print(foo([2, 3]))
