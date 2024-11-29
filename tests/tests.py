@@ -33,14 +33,14 @@ def compose_retif_and_logret(fname):
   mp.log_returns()
   mp.dump()
   
-def add_asserts(fname):
+def dyn_typecheck(fname):
   mp = metap.MetaP(filename=fname)
-  mp.add_asserts()
+  mp.dyn_typecheck()
   mp.dump()
 
-def add_asserts_skip(fname):
+def dyn_typecheck_skip(fname):
   mp = metap.MetaP(filename=fname)
-  mp.add_asserts(skip_funcs=["foo"])
+  mp.dyn_typecheck(skip_funcs=["foo"])
   mp.dump()
 
 def log_calls_start_end1(fname):
@@ -84,7 +84,7 @@ def typedef_boiler(src, typedefs):
   
   out_fname = 'test.py'
   mp = metap.MetaP(filename=mp_fname)
-  mp.add_asserts(typedefs_path=td_fname)
+  mp.dyn_typecheck(typedefs_path=td_fname)
   mp.dump(filename=out_fname)
 
   with open(out_fname, 'r') as fp:
@@ -731,7 +731,7 @@ def foo(s: str):
   pass
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
 
 
@@ -757,7 +757,7 @@ def foo(s: Optional[str]):
   pass
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
 
 
@@ -783,7 +783,7 @@ def foo(s: Union[str, int]):
   pass
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
 
 
@@ -810,7 +810,7 @@ def foo(s: Tuple[str, int, RandomClass]):
   pass
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
     
 
@@ -836,7 +836,7 @@ def foo(s: List[str]):
   pass
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
 
 
@@ -862,7 +862,7 @@ def foo(s: List[Optional[Tuple[str, int]]]):
   pass
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
 
 
@@ -890,7 +890,7 @@ def foo(s: Optional[Tuple[List[str], List[int]]]):
   pass
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.maxDiff = None
     self.assertEqual(out, expect)
 
@@ -944,7 +944,7 @@ def foo(s: None):
   pass
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
 
 
@@ -975,7 +975,7 @@ def foo(a: int, b: Dict[int, Optional[str]]):
   pass
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
 
 
@@ -1006,7 +1006,7 @@ def foo(a: int, b: Dict[int, List[str]]):
   pass
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
 
 
@@ -1051,7 +1051,7 @@ class Test:
     return __metap_retv
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
 
 
@@ -1076,7 +1076,7 @@ def foo(a: pd.DataFrame):
   pass
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
 
 
@@ -1099,7 +1099,7 @@ def foo(a: List):
   pass
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
 
 
@@ -1136,7 +1136,7 @@ def foo(s: int) -> str:
   return __metap_retv
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
     
 
@@ -1172,7 +1172,7 @@ def foo(s: int) -> Optional[Tuple[str, int]]:
   return __metap_retv
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
 
 
@@ -1193,7 +1193,7 @@ if not (isinstance(a, int) or a is None):
   assert False
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
 
 
@@ -1259,7 +1259,7 @@ def foo(t: Type[int]):
   pass
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
 
 
@@ -1284,7 +1284,7 @@ def foo(t: Type):
   pass
 """
 
-    out = boiler(src, add_asserts)
+    out = boiler(src, dyn_typecheck)
     self.assertEqual(out, expect)
 
 
@@ -1305,7 +1305,7 @@ def foo(t: Type):
   pass
 """
 
-    out = boiler(src, add_asserts_skip)
+    out = boiler(src, dyn_typecheck_skip)
     self.assertEqual(out, expect)
 
 

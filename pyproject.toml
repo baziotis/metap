@@ -1,6 +1,6 @@
 [project]
 name = "metap"
-version = "0.0.1"
+version = "0.0.2"
 authors = [
   { name="Stefanos Baziotis", email="stefanos.baziotis@gmail.com" },
 ]

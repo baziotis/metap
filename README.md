@@ -342,7 +342,7 @@ metap::If(ln=1)
 
 Note that the inner `if` with the `else` was not logged because it's not within the ranges.
 
-## `MetaP.add_asserts()`
+## `MetaP.dyn_typecheck()`
 
 Adds asserts that verify type annotations in function arguments, returns, and
 assignments.
@@ -367,7 +367,7 @@ def foo(s: Optional[str]):
 # client.py
 import metap
 mp = metap.MetaP(filename='test_mp.py')
-mp.add_asserts()
+mp.dyn_typecheck()
 mp.dump('test.py')
 ```
 
@@ -403,7 +403,7 @@ def foo(sch: Schema):
 # client.py
 import metap
 mp = metap.MetaP(filename='test_mp.py')
-mp.add_asserts()
+mp.dyn_typecheck()
 mp.dump('test.py')
 ```
 

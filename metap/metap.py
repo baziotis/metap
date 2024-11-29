@@ -1026,7 +1026,7 @@ class MetaP:
     transformer = LogIfs(range=range, indent=indent)
     transformer.visit(self.ast)
     
-  def add_asserts(self, typedefs_path=None, skip_funcs: Optional[List[str]]=None):
+  def dyn_typecheck(self, typedefs_path=None, skip_funcs: Optional[List[str]]=None):
     if typedefs_path is not None:
       with open(typedefs_path, 'r') as fp:
         tdef_ast = ast.parse(fp.read())
