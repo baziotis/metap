@@ -261,7 +261,7 @@ class CVarTransformer(ast.NodeTransformer):
     return new_call
 
 class NecessaryTransformer(ast.NodeTransformer):
-  # __ret_ifnn and __ret_ifn
+  # _ret_ifnn and _ret_ifn
   def visit_Expr(self, e):
     if not isinstance(e.value, ast.Call):
       self.generic_visit(e)
@@ -272,7 +272,7 @@ class NecessaryTransformer(ast.NodeTransformer):
       self.generic_visit(e)
       return e
     
-    ret_funcs = ['__ret_ifnn', '__ret_ifn']
+    ret_funcs = ['_ret_ifnn', '_ret_ifn']
     if func.id not in ret_funcs:
       self.generic_visit(e)
       return e
@@ -289,7 +289,7 @@ class NecessaryTransformer(ast.NodeTransformer):
 
     lineno = call.lineno
     
-    if func.id == '__ret_ifnn':
+    if func.id == '_ret_ifnn':
       if_ = ast.If(
         test=ast.Compare(left=var, ops=[ast.IsNot()],
                         comparators=[ast.Constant(value=None)]),
@@ -312,7 +312,7 @@ class NecessaryTransformer(ast.NodeTransformer):
       self.generic_visit(call)
       return call
     
-    funcs = ['__ret_ifn', '__ret_ifnn', '_cvar']
+    funcs = ['_ret_ifn', '_ret_ifnn', '_cvar']
     if call.func.id in funcs:
       assert False
       

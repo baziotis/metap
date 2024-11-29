@@ -292,12 +292,12 @@ class RetIfnn(unittest.TestCase):
 """
 def foo(ns):
   for n in ns:
-    __ret_ifnn(helper(n))
+    _ret_ifnn(helper(n))
   return None
 
 def main(xs):
   for x in xs:
-    __ret_ifnn(foo(x))
+    _ret_ifnn(foo(x))
 """
 
     expect = \
@@ -330,12 +330,12 @@ class RetIfn(unittest.TestCase):
 """
 def foo(ns):
   for n in ns:
-    __ret_ifn(helper(n))
+    _ret_ifn(helper(n))
   return None
 
 def main(xs):
   for x in xs:
-    __ret_ifn(foo(x))
+    _ret_ifn(foo(x))
 """
 
     expect = \
@@ -402,7 +402,7 @@ class ComposeRetIfAndLogRet(unittest.TestCase):
 """
 def foo(ns):
   for n in ns:
-    __ret_ifnn(helper(n))
+    _ret_ifnn(helper(n))
 """
 
     expect = \
