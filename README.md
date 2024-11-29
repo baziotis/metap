@@ -11,9 +11,20 @@ So, I finally decided to implement a tool that allows me to have these features.
 write programs that generate programs. That sounds fancy, but in practice
 `metap` just automates tedious program transformations and programming patterns.
 
-# Quickstart
+# Installation
 
-First, just `pip install metap`.
+First (because `metap` needs a bug-fixed version of `astor`):
+```
+pip install git+https://github.com/baziotis/astor#egg=astor
+```
+
+Then:
+```
+pip install metap
+```
+
+
+# Quickstart
 
 `metap` works with two scripts: (a) A client, and (b) a meta-program, both
 written in Python. This sounds complex but basically your meta-program is just

@@ -1,6 +1,6 @@
 [project]
 name = "metap"
-version = "0.0.7"
+version = "0.0.8"
 authors = [
   { name="Stefanos Baziotis", email="stefanos.baziotis@gmail.com" },
 ]
@@ -8,15 +8,26 @@ description = "A simple meta-programming layer for Python"
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Operating System :: OS Independent",
     "License :: OSI Approved :: Apache Software License"
 ]
-keywords = ["meta-programming"]
+keywords = ["meta-programming", "debugging"]
 
 [project.urls]
 Homepage = "https://github.com/baziotis/metap"
+Repository = "https://github.com/baziotis/metap"
 
 [build-system]
-requires = ["setuptools>=61.0", "astor>=0.8.1"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
