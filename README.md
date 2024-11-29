@@ -141,7 +141,7 @@ this is by trying to write it in standard Python :)
 
 
 
-# API
+# Client API
 
 ## `class MetaP`
 
@@ -154,8 +154,8 @@ The whole API is under the `MetaP` class. Fields:
 ### `MetaP.log_returns()`
 
 **Parameters**:
-- `include_fname: str`: Include the filename in the logs
-- `range: List[Union[int, Tuple[int, int]]]`: Only log returns within the line
+- `include_fname: str`: Optional. Include the filename in the logs
+- `range: List[Union[int, Tuple[int, int]]]`: Optional. Only log returns within the line
   ranges provided. `range` gets a list that can have either integers (denoting a
   single line), or a pair of integers (denoting a `[from, to]` range). 
 
@@ -168,15 +168,20 @@ See [Quickstart](#quickstart).
 
 Similar to `log_returns()` but for `break` and `continue`.
 
+**Parameters**:
+- `range: List[Union[int, Tuple[int, int]]]`: Optional. Only log returns within the line
+  ranges provided. `range` gets a list that can have either integers (denoting a
+  single line), or a pair of integers (denoting a `[from, to]` range). 
+
 
 ### `MetaP.log_calls()`
 
 Log call-sites
 
 **Parameters**:
-- `range: List[Union[int, Tuple[int, int]]]`: Only log returns within the line
+- `range: List[Union[int, Tuple[int, int]]]`: Optional. Only log returns within the line
   ranges provided. `range` gets a list that can have either integers (denoting a
-  single line), or a pair of integers (denoting a `[from, to]` range).
+  single line), or a pair of integers (denoting a `[from, to]` range). 
 
 **Example**
 
@@ -209,7 +214,11 @@ metap::Call(ln=6,call=add_one(x))
 Prints a message before and after calls matching a pattern.
 
 **Parameters**:
-- `patt: Pattern`: Regular expression. Only function calls that have function names that match this pattern are logged.
+- `patt: Pattern`: Optional. A regular expression. Only function calls that have
+  function names that match this pattern are logged.
+- `range: List[Union[int, Tuple[int, int]]]`: Optional. Only log returns within the line
+  ranges provided. `range` gets a list that can have either integers (denoting a
+  single line), or a pair of integers (denoting a `[from, to]` range). 
 
 **Simple Example**
 
@@ -228,8 +237,8 @@ mp.dump(filename="test.py")
 
 Running the generated `test.py` gives us:
 ```
-metap: Started executing: 3:json.dump('d.json', fp)
-metap: Finished executing: 3:json.dump('d.json', fp)
+metap: Started executing: 3:json.dump
+metap: Finished executing: 3:json.dump
 ```
 
 ### `MetaP.log_func_defs()`
@@ -237,7 +246,7 @@ metap: Finished executing: 3:json.dump('d.json', fp)
 Log when we get into functions.
 
 **Parameters**:
-- `range: List[Union[int, Tuple[int, int]]]`: Only log returns within the line
+- `range: List[Union[int, Tuple[int, int]]]`: Optional. Only log returns within the line
   ranges provided. `range` gets a list that can have either integers (denoting a
   single line), or a pair of integers (denoting a `[from, to]` range).
 - `indent: bool`: Indent the logs such that the indentation is proportional to a call's depth.
@@ -284,10 +293,11 @@ metap::FuncDef(ln=4,func=visit_Assign)
 ### `MetaP.log_ifs()`
 
 **Parameters**:
-- `range: List[Union[int, Tuple[int, int]]]`: Only log returns within the line
+- `range: List[Union[int, Tuple[int, int]]]`: Optional. Only log returns within the line
   ranges provided. `range` gets a list that can have either integers (denoting a
-  single line), or a pair of integers (denoting a `[from, to]` range).
-- `indent: bool`: Indent the logs such that the indentation is proportional to a call's depth.
+  single line), or a pair of integers (denoting a `[from, to]` range). 
+- `indent: bool`: Indent the logs such that the indentation is proportional to
+  the nesting depth.
 
 **Example**:
 
@@ -326,7 +336,13 @@ Note that the inner `if` with the `else` was not logged because it's not within 
 Adds asserts that verify type annotations in function arguments, returns, and
 assignments.
 
-**Parameters**: None
+**Parameters**:
+- `typedefs_path: str`: Optional. Path to a file with typedefs of the form
+  `name = annotation` if the annotations in the main file use anything other than
+  the supported names from the `typing` module.
+- `skip_funcs: List[str]`: Optional. A list of function names to skip.
+
+Currently supported annotations from `typing`: `Optional`, `Union`, `Tuple`, `List`, `Dict`
 
 **Simple Example**
 
@@ -337,6 +353,7 @@ def foo(s: Optional[str]):
 ```
 
 ```python
+# client.py
 import metap
 mp = metap.MetaP(filename='test_mp.py')
 mp.add_asserts()
@@ -352,6 +369,31 @@ def foo(s: Optional[str]):
     print(type(s))
     assert False
   pass
+```
+
+**Using Custom Typedefs**
+
+```python
+# typedefs.py
+TableName = str
+ColName = str
+ColType = Union[int, float, str]
+Col = Tuple[ColName, ColType]
+Schema = Dict[TableName, List[Col]]
+```
+
+```python
+# test_mp.py
+def foo(sch: Schema):
+  pass
+```
+
+```python
+# client.py
+import metap
+mp = metap.MetaP(filename='test_mp.py')
+mp.add_asserts()
+mp.dump('test.py')
 ```
 
 ## `MetaP.expand_asserts()`
@@ -389,7 +431,19 @@ if _metap_l == _metap_r:
   assert False
 ```
 
-## `metap` Superset of Python
+Currently it supports (in)equals (e.g., `assert a == b`) and `isinstance()`
+calls (e.g., `assert isinstance(a, int)`).
+
+
+## `MetaP.dump()`
+
+Generate valid Python code and dump it to a file.
+
+**Parameters**:
+- `filename: str`: Optional. If not provided, `metap` will use `<original name>.metap.py`.
+
+
+# `metap` Superset of Python
 
 All the features we've seen up to now make running a `metap` client _optional_. In other words, you could just run the `test_mp.py` programs without using a client at all.
 
@@ -405,7 +459,7 @@ mp.compile()
 mp.dump('test.py')
 ```
 
-## `__ret_ifnn()` and `__ret_ifn()`
+## `_ret_ifnn()` and `_ret_ifn()`
 
 **Parameters**:
 - `e`: Any expression.
@@ -421,9 +475,9 @@ with:
 # test_mp.py
 
 # Return None if `x` is None
-__ret_ifn(x)
+_ret_ifn(x)
 # Return `x` if `x` is not None
-__ret_ifnn(x)
+_ret_ifnn(x)
 ```
 
 The generated `test.py` is equivalent to:
@@ -442,7 +496,7 @@ _looks_ like a function call but you should think of it as a statement. For
 example, the following will _not_ compile:
 
 ```python
-foo(__ret_ifn(x))
+foo(_ret_ifn(x))
 ```
 
 Also, note that you can compose this feature with logging returns. For example, you
@@ -474,6 +528,10 @@ This is basically similar to C++'s:
 if (c = line.startswith("# "))
 ```
 
+**Usage notes**:
+
+Currently `_cvar()` works only in `if-elif` conditions.
+
 ## `time_e()`
 
 Time expression.
@@ -490,11 +548,29 @@ res, ns = _time_e(2 + 3)
 
 `res` gets `5` and `ns` gets the timing in nanoseconds.
 
+
+## `_mprint()`
+
+Print the expression source along with the expression value.
+
+**Parameters**:
+- `e`: Any expression
+
+
+**Example**:
+
+```
+a = 2
+_mprint(a)
+```
+
+Prints `a: 2`.
+
 # Design Choices
 
 It may seem that it would be better to extend the language, as this e.g., would
 allow us to add custom `return` statements that accept a condition, instead of
-using call-like syntax with `__ret_ifn()`. However, this option has serious
+using call-like syntax with `_ret_ifn()`. However, this option has serious
 drawbacks. First, it's a [hefty
 task](https://aroberge.github.io/ideas/docs/html/#ideas-making-it-easier-to-extend-python-s-syntax).
 But most importantly, it would be hard to reuse the work across environments,
