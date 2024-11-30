@@ -160,8 +160,6 @@ The whole API is under the `MetaP` class. Fields:
 
 - `filename`: The path to the meta-program.
 
-## Logging
-
 ### `MetaP.log_returns()`
 
 **Parameters**:
@@ -220,7 +218,7 @@ metap::Call(ln=6,call=add_one(x))
 metap::Call(ln=6,call=add_one(x))
 ```
 
-## `MetaP.log_calls_start_end()`
+### `MetaP.log_calls_start_end()`
 
 Prints a message before and after calls matching a pattern.
 
@@ -342,7 +340,7 @@ metap::If(ln=1)
 
 Note that the inner `if` with the `else` was not logged because it's not within the ranges.
 
-## `MetaP.dyn_typecheck()`
+### `MetaP.dyn_typecheck()`
 
 Adds asserts that verify type annotations in function arguments, returns, and
 assignments.
@@ -407,7 +405,7 @@ mp.dyn_typecheck()
 mp.dump('test.py')
 ```
 
-## `MetaP.expand_asserts()`
+### `MetaP.expand_asserts()`
 
 Expands some asserts such that if they fire, you get some info on the expressions involved.
 
@@ -446,7 +444,7 @@ Currently it supports (in)equals (e.g., `assert a == b`) and `isinstance()`
 calls (e.g., `assert isinstance(a, int)`).
 
 
-## `MetaP.dump()`
+### `MetaP.dump()`
 
 Generate valid Python code and dump it to a file.
 
@@ -470,7 +468,7 @@ mp.compile()
 mp.dump('test.py')
 ```
 
-## `_ret_ifnn()` and `_ret_ifn()`
+### `_ret_ifnn()` and `_ret_ifn()`
 
 **Parameters**:
 - `e`: Any expression.
@@ -515,7 +513,7 @@ can issue `mp.compile()`, which will create the `if-return`, and then use
 `mp.log_returns()` which will log the generated returns (but using the line
 numbers of the original call).
 
-## `cvar()`
+### `cvar()`
 
 **Example**
 
@@ -543,7 +541,7 @@ if (c = line.startswith("# "))
 
 Currently `_cvar()` works only in `if-elif` conditions.
 
-## `time_e()`
+### `time_e()`
 
 Time expression.
 
@@ -560,7 +558,7 @@ res, ns = _time_e(2 + 3)
 `res` gets `5` and `ns` gets the timing in nanoseconds.
 
 
-## `_mprint()`
+### `_mprint()`
 
 Print the expression source along with the expression value.
 
