@@ -753,7 +753,7 @@ def ann_if(obj, ann, id_curr):
   )
   return if_
 
-class AssertTransformer(ast.NodeTransformer):
+class DynTypecheck(ast.NodeTransformer):
   def __init__(self, skip_funcs: Optional[List[str]]):
     ast.NodeTransformer.__init__(self)
     self.skip_funcs = skip_funcs
@@ -1037,7 +1037,7 @@ class MetaP:
       t2 = TypedefTransform(t.typedefs)
       t2.visit(self.ast)
     # END IF #
-    t = AssertTransformer(skip_funcs)
+    t = DynTypecheck(skip_funcs)
     t.visit(self.ast)
   
   def log_calls_start_end(self, patt=None, range=[]):
