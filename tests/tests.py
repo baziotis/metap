@@ -2,6 +2,8 @@ import unittest
 import metap
 import os
 
+from common import *
+
 def ret_func(fname):
   mp = metap.MetaP(filename=fname)
   mp.log_returns()
@@ -32,11 +34,6 @@ def compose_retif_and_logret(fname):
   mp.compile()
   mp.log_returns()
   mp.dump()
-  
-def dyn_typecheck(fname):
-  mp = metap.MetaP(filename=fname)
-  mp.dyn_typecheck()
-  mp.dump()
 
 def dyn_typecheck_skip(fname):
   mp = metap.MetaP(filename=fname)
@@ -57,21 +54,6 @@ def log_calls_start_end3(fname):
   mp = metap.MetaP(filename=fname)
   mp.log_calls_start_end()
   mp.dump()
-
-def boiler(src, mid_func):
-  fname = 'test.py'
-  with open(fname, 'w') as fp:
-    fp.write(src)
-
-  mid_func(fname)
-
-  out_fname = 'test.metap.py'
-  with open(out_fname, 'r') as fp:
-    out = fp.read()
-  os.remove(fname)
-  os.remove(out_fname)
-
-  return out
 
 def typedef_boiler(src, typedefs):
   mp_fname = 'test_mp.py'
@@ -711,7 +693,7 @@ else:
 
 
 
-class AddAsserts(unittest.TestCase):
+class DynTypecheck(unittest.TestCase):
   def test_simple(self):
     src = \
 """

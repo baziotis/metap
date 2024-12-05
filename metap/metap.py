@@ -3,7 +3,10 @@ import os
 from contextlib import contextmanager
 import copy
 import re
+import warnings
 from typing import Dict, List, Optional
+
+from . import errors_warns
 
 ### HELPERS called from the generated program ###
 
@@ -239,11 +242,13 @@ class CVarTransformer(ast.NodeTransformer):
       return call
     
     args = call.args
-    assert 2 <= len(args) <= 3
+    if not (2 <= len(args) <= 3):
+      raise errors_warns.APIError(f"_cvar: {optional_lineno(call)}_cvar requires accepts either 2 or 3 arguments.")
     cond = args[0]
     var = args[1]
     
-    assert isinstance(var, ast.Name)
+    if not isinstance(var, ast.Name):
+      raise errors_warns.APIError(f"_cvar: {optional_lineno(call)}The second argument must be an identifier.")
     var_name = var.id
     our_name = ast.Constant(value="__metap_"+var_name)
 
@@ -281,8 +286,8 @@ class NecessaryTransformer(ast.NodeTransformer):
       self.generic_visit(e)
       return e
 
-    assert len(call.args) == 1
-    assert len(call.keywords) == 0
+    if len(call.args) != 1 or len(call.keywords) != 0:
+      raise errors_warns.APIError(f"{optional_lineno(call)}{func.id} accepts exactly one non-keyword argument.")
 
     orig_val = call.args[0]
     var = ast.Name(id='_metap_ret')
@@ -318,12 +323,13 @@ class NecessaryTransformer(ast.NodeTransformer):
     
     funcs = ['_ret_ifn', '_ret_ifnn', '_cvar']
     if call.func.id in funcs:
-      assert False
+      raise errors_warns.APIError(f"{optional_lineno(call)}Wrong usage of {call.func.id}.")
       
     # Handle timing
     if call.func.id == '_time_e':
       args = call.args
-      assert len(args) == 1
+      if len(args) != 1:
+        raise errors_warns.APIError(f"{optional_lineno(call)}_time_e accepts exactly one argument.")
       e = ast.Expr(value=args[0])
       code_to_exec = f"""
 import time
@@ -340,7 +346,8 @@ __metap_total_ns = __metap_end_ns - __metap_start_ns
       return new_call
     elif call.func.id == '_mprint':
       args = call.args
-      assert len(args) == 1
+      if len(args) != 1:
+        raise errors_warns.APIError(f"{optional_lineno(call)}_mprint accepts exactly one argument.")
       e = ast.Expr(value=args[0])
       arg_s = astor.to_source(e).strip()
       print_arg0 = ast.Constant(value=f"{arg_s}:")
@@ -601,12 +608,25 @@ def isnone_cond(obj):
   return ast.Compare(obj, ops=[ast.Is()],
                      comparators=[ast.Constant(value=None)])
 
+
+def optional_lineno(ann):
+  lineno = ""
+  if hasattr(ann, 'lineno'):
+    lineno = str(ann.lineno) + ": "
+  # END IF #
+  return lineno
+
 def handle_non_sub(obj, ann):
-  if isinstance(ann, ast.Name) and (ann.id in ["List", "Dict", "Tuple", "Type"]):
-    ty = ast.Name(id=ann.id.lower())
-    return isinst_call(obj, ty)
-  else:
-    return isinst_call(obj, ann)
+  if isinstance(ann, ast.Name):
+    unsupported = ["Any", "AnyStr", "Never", "NoReturn", "Self", "TypeVar",
+                   "TypeAlias", "Concatenate", "Required", "NotRequired"]
+    if ann.id in unsupported:
+      raise errors_warns.UnsupportedError(f"dyn_typecheck: {optional_lineno(ann)}{ann.id} annotation is not supported.")
+    if ann.id in ["List", "Dict", "Tuple", "Type"]:
+      ty = ast.Name(id=ann.id.lower())
+      return isinst_call(obj, ty)
+  # END IF #
+  return isinst_call(obj, ann)
   
 def ann_id(curr: List[int]):
   curr[0] = curr[0] + 1
@@ -619,23 +639,28 @@ def exp_for_ann(obj, ann, id_curr):
   
   if not isinstance(ann, ast.Subscript):
     return handle_non_sub(obj, ann)
-  
+
   assert isinstance(ann, ast.Subscript)
   sub = ann
   slice = sub.slice
   cons = sub.value
-  assert isinstance(cons, ast.Name)
+  if not isinstance(cons, ast.Name):
+    raise errors_warns.UnsupportedError(f"dyn_typecheck: {optional_lineno(ann)}{astor.to_source(ann).strip()} annotation is not supported.")
   acceptable_constructors = ['Optional', 'Union', 'Tuple', 'List', 'Dict', 'Type']
-  assert cons.id in acceptable_constructors
+  if cons.id not in acceptable_constructors:
+    raise errors_warns.UnsupportedError(f"dyn_typecheck: {optional_lineno(ann)}{astor.to_source(cons).strip()} annotation is not supported.")
   if cons.id == 'Optional':
     is_ty = exp_for_ann(obj, slice, id_curr)
     is_none = isnone_cond(obj)
     or_ = ast.BinOp(left=is_ty, op=ast.Or(), right=is_none)
     return or_ 
   elif cons.id == 'Union':
-    assert isinstance(slice, ast.Tuple)
+    if not isinstance(slice, ast.Tuple):
+      raise errors_warns.APIError(f"dyn_typecheck:{optional_lineno(ann)}Union can't appear on its own. It needs at least two arguments.")
     elts = slice.elts
-    assert len(elts) >= 2
+    # TODO: This should be exactly 2 to agree with the official Union.
+    if not (len(elts) >= 2):
+      raise errors_warns.APIError(f"dyn_typecheck:{optional_lineno(ann)}Union requires at least two arguments.")
     l = elts[0]
     r = elts[1]
     is_l = exp_for_ann(obj, l, id_curr)
@@ -648,9 +673,9 @@ def exp_for_ann(obj, ann, id_curr):
       curr = ast.BinOp(left=curr, op=ast.Or(), right=check)
     return curr
   elif cons.id == 'Tuple':
-    assert isinstance(slice, ast.Tuple)
     elts = slice.elts
-    assert len(elts) > 1
+    if not (isinstance(slice, ast.Tuple) and len(elts) > 1):
+      raise errors_warns.APIError(f"dyn_typecheck:{optional_lineno(ann)}Tuple requires at least two arguments.")
     
     isinst = isinst_call(obj, ast.Name(id='tuple'))
     
@@ -675,9 +700,10 @@ def exp_for_ann(obj, ann, id_curr):
     and_isinst = ast.BinOp(left=isinst, op=ast.And(), right=curr)
     return and_isinst
   elif cons.id == 'List':
-    # We only support single type
-    assert not isinstance(slice, ast.Tuple)
-    
+    if isinstance(slice, ast.Tuple):
+      raise errors_warns.UnsupportedError(f"dyn_typecheck:{optional_lineno(ann)}List supports only a single argument.")
+
+
     isinst = isinst_call(obj, ast.Name(id='list'))
     
     iter_el = ast.Name(id='__metap_x' + str(ann_id(id_curr)))
@@ -694,12 +720,12 @@ def exp_for_ann(obj, ann, id_curr):
     and_ = ast.BinOp(left=isinst, op=ast.And(), right=all_call)
     return and_
   elif cons.id == 'Dict':
-    assert isinstance(slice, ast.Tuple)
+    if not (isinstance(slice, ast.Tuple) and len(slice.elts) == 2):
+      raise errors_warns.APIError(f"dyn_typecheck:{optional_lineno(ann)}Dict requires exactly two arguments.")
     
     isinst = isinst_call(obj, ast.Name(id='dict'))
     
     elts = slice.elts
-    assert len(elts) == 2
     key_ann = elts[0]
     val_ann = elts[1]
     
@@ -726,7 +752,8 @@ def exp_for_ann(obj, ann, id_curr):
     and_ = ast.BinOp(left=isinst, op=ast.And(), right=all_call)
     return and_
   elif cons.id == 'Type':
-    assert isinstance(slice, ast.Name)
+    if not isinstance(slice, ast.Name):
+      raise errors_warns.APIError(f"dyn_typecheck:{optional_lineno(ann)}Type supports exactly one argument.")
     is_ = ast.BinOp(left=obj, op=ast.Is(), right=slice)
     return is_
   else:
@@ -761,7 +788,13 @@ class DynTypecheck(ast.NodeTransformer):
 
   def visit_AnnAssign(self, node: ast.AnnAssign):
     target = node.target
+    # TODO: It's unclear whether these cases should be errors or warnings.
+    # Warnings help the user have the annotation while still use the tool for
+    # other annotations. But they may be ignored, and the user might care for
+    # some annotations.
     if not isinstance(target, ast.Name):
+      warnings.warn(f"dyn_typecheck: {optional_lineno(node)}Annotations in assignments are only supported if the target (LHS) is an identifier. Skipping...",
+                    errors_warns.UnsupportedWarning)
       return node
 
     ann = node.annotation
@@ -838,9 +871,11 @@ class TypedefGather(ast.NodeTransformer):
     
   def visit_Assign(self, asgn: ast.Assign):
     targets = asgn.targets
-    assert len(targets) == 1
+    if not (len(targets) == 1):
+      raise errors_warns.APIError(f"{optional_lineno(asgn)}The assignments in the typedef file need to have exactly one target.")
     name_node = targets[0]
-    assert isinstance(name_node, ast.Name)
+    if not isinstance(name_node, ast.Name):
+      raise errors_warns.APIError(f"{optional_lineno(asgn)}The assignments in the typedef file need to have identifiers as targets.")
     typename = name_node.id
     new_val = self.visit(asgn.value)
     self.typedefs[typename] = new_val
