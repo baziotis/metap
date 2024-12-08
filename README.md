@@ -162,7 +162,7 @@ Table of Contents:
 - [`metap` superset of Python](#metap-superset-of-python)
   - [`_ret_ifnn()` and `_ret_ifn()`](#_ret_ifnn-and-_ret_ifn)
   - [`cvar()`](#cvar)
-  - [`time_e()`](#time_e())
+  - [`time_e()`](#time_e)
   - [`_mprint()`](#_mprint)
 
 
