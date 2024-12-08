@@ -152,6 +152,27 @@ this is by trying to write it in standard Python :)
 
 
 
+# API Table of Contents
+
+Table of Contents:
+- [Client API](#client-api)
+  - [`MetaP`](#class-metap)
+  - [`log_returns()`](#metaplog_returns)
+  - [`log_breaks()` and `log_continues()`](#log_breaks-and-log_continues)
+  - [`log_calls()`](#metaplog_calls)
+  - [`log_calls_start_end()`](#metaplog_calls_start_end)
+  - [`log_func_defs()`](#metaplog_func_defs)
+  - [`log_ifs()`](#metaplog_ifs)
+  - [`dyn_typecheck()`](#metapdyn_typecheck)
+  - [`expand_asserts()](#metapexpand_asserts)
+  - [`dump()`](#metapdump)
+- [`metap` superset of Python](#metap-superset-of-python)
+  - [`_ret_ifnn()` and `_ret_ifn()`](#_ret_ifnn-and-_ret_ifn)
+  - [`cvar()`](#cvar)
+  - [`time_e()`](#time_e())
+  - [`_mprint()`](#_mprint)
+
+
 # Client API
 
 ## `class MetaP`
