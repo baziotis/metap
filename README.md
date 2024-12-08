@@ -26,15 +26,15 @@ pip install metap
 
 # Quickstart
 
-`metap` works with two scripts: (a) A client, and (b) a meta-program, both
-written in Python. This sounds complex but basically your meta-program is just
-your program, except it _may_ have `metap`-specific features. The client tells
-`metap` how to process your meta-program to generate the actual program.
+`metap` works with two scripts: (a) A client, and (b) a meta-program. The
+metap-program is just a Python program, except it _may_ have `metap`-specific
+features. The client tells `metap` how to process your meta-program to generate
+another Python program.
 
-So, here's a simple example. Let's say you have the following meta-program, in
-file `test_mp.py`:
+Here's a simple example. Let's say you have the following meta-program, in
+the file `test_mp.py`:
 
-```python,linenos
+```python
 # test_mp.py
 def foo():
   return 2
@@ -71,7 +71,7 @@ run:
 python client.py
 ```
 
-to produce `test.py`. And then we run it:
+to produce `test.py`. Then, we run it:
 
 ```bash
 python test.py
@@ -84,39 +84,32 @@ metap::test_mp.py::Return(ln=3)
 metap::test_mp.py::Return(ln=9)
 ```
 
-So, every time a return fires, we log it. Note that `metap` retained the line
-numbers of the _original_ program (i.e., the meta-program), which is what you
-want because this is what you're working on. 
-
 `metap` allows you to log all kinds of things, optionally supporting indentation
-and only logging within ranges. Here's another simple example of logging when we enter into function bodies:
+and only logging within ranges. 
 
-```python,linenos
-# test_mp.py
-def bar():
-  return 2
+Another useful feature is dynamic type checking. Python accepts type annotations
+in e.g., variable declarations, function parameters and return types. These
+annotations are not checked statically or dynamically by default. `metap` can
+enter generate code that the dynamic values agree with the annotations. For
+example, for the following code:
 
-def baz():
-  return 3
-
-def foo(n):
-  if n == 2:
-    return foo(3)
-  a = bar()
-  b = baz()
-
-foo(2)
+```python
+def foo(s: str):
+  pass
 ```
 
-Now, using `mp.log_func_defs(indent=True)` and running the produced `test.py`
-we get:
+and using the `dyn_typecheck()` feature, `metap` generates:
 
+```python
+def foo(s: str):
+  if not isinstance(s, str):
+    print(s)
+    print(type(s))
+    assert False
+  pass
 ```
-metap::FuncDef(ln=7,func=foo)
-  metap::FuncDef(ln=7,func=foo)
-    metap::FuncDef(ln=1,func=bar)
-    metap::FuncDef(ln=4,func=baz)
-```
+
+`metap` supports pretty complex annotations, e.g., `Optional[Tuple[List[str], List[int]]]`.
 
 To finish this quickstart guide, things get really interesting when the
 meta-program starts using `metap`-specific features.
@@ -147,7 +140,7 @@ mp.dump(filename="mdhtml.py")
 ```
 
 `mp.compile()` handles _all_ the `metap`-specific features in a single call.
-After generating `mdhtml.py` and running it, I get `1`. You can tell how useful
+After generating `mdhtml.py` and running it, we get `1`. You can tell how useful
 this is by trying to write it in standard Python :)
 
 
@@ -164,7 +157,7 @@ Table of Contents:
   - [`log_func_defs()`](#metaplog_func_defs)
   - [`log_ifs()`](#metaplog_ifs)
   - [`dyn_typecheck()`](#metapdyn_typecheck)
-  - [`expand_asserts()](#metapexpand_asserts)
+  - [`expand_asserts()`](#metapexpand_asserts)
   - [`dump()`](#metapdump)
 - [`metap` superset of Python](#metap-superset-of-python)
   - [`_ret_ifnn()` and `_ret_ifn()`](#_ret_ifnn-and-_ret_ifn)
