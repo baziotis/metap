@@ -1,5 +1,6 @@
 import ast, astor
 import re
+import argparse
 
 def skip_space(s, idx):
   first_non_whitespace_pos = len(s[idx:]) - len(s[idx:].lstrip())
@@ -73,7 +74,7 @@ class CallParse(ast.NodeTransformer):
       keywords=[]
     )
     replace_bindings_call = ast.Call(
-      func=ast.Attribute(value=ast.Name(id="lib"), attr='replace_bindings'),
+      func=ast.Attribute(value=ast.Name(id="rt_lib"), attr='replace_bindings'),
       args=[parse_call, locals_call],
       keywords=[]
     )
@@ -87,16 +88,15 @@ class CallParse(ast.NodeTransformer):
 
     return new_asgn
 
-with open('test.py', 'r') as fp:
-  s = fp.read()
 
-s = replace_curlies(s)
+def gen_macros(input_file):
+  with open(input_file, 'r') as fp:
+    s = fp.read()
 
-t = ast.parse(s)
-v = CallParse()
-v.visit(t)
+  s = replace_curlies(s)
 
-new_src = astor.to_source(t, indent_with=" "*2)
+  t = ast.parse(s)
+  v = CallParse()
+  v.visit(t)
 
-with open('macros.py', 'w') as fp:
-  fp.write(new_src)
+  return t

@@ -5,6 +5,11 @@ import copy
 import re
 import warnings
 from typing import Dict, List, Optional
+import pprint
+
+from .macros import gen_lib as macros_gen
+from .macros import rt_lib
+from .macros import default_impl
 
 from . import errors_warns
 
@@ -270,7 +275,35 @@ class CVarTransformer(ast.NodeTransformer):
     return new_call
 
 class NecessaryTransformer(ast.NodeTransformer):
-  # _ret_ifnn and _ret_ifn
+  def __init__(self, macro_defs_ast=None):
+    ast.NodeTransformer.__init__(self)
+    self.macro_defs = set()
+    if macro_defs_ast is None:
+      return
+
+    assert isinstance(macro_defs_ast, ast.Module)
+    for fdef in macro_defs_ast.body:
+      assert isinstance(fdef, ast.FunctionDef)
+      self.macro_defs.add(fdef.name)
+    ### END FOR ###
+
+    macros_src = astor.to_source(macro_defs_ast, indent_with="  ")
+    exec(macros_src, globals())
+    DEBUG = True
+    if DEBUG:
+      with open('macros_impl.py', 'w') as fp:
+        fp.write(macros_src)
+      # END WITH #
+    # END IF #
+  
+  def __enter__(self):
+    return self
+  
+  def __exit__(self, exc_type, exc_value, traceback):
+    # TODO:Delete the file here.
+    pass
+
+  # Handle macros
   def visit_Expr(self, e):
     if not isinstance(e.value, ast.Call):
       self.generic_visit(e)
@@ -280,50 +313,32 @@ class NecessaryTransformer(ast.NodeTransformer):
     if not isinstance(func, ast.Name):
       self.generic_visit(e)
       return e
-    
-    ret_funcs = ['_ret_ifnn', '_ret_ifn']
-    if func.id not in ret_funcs:
+
+    # A macro needs the ASTs of what the user passes (not the evaluated code,
+    # which is the default). Conveniently, these are already in `call.args`.
+    #
+    # TODO: Check that the number of arguments matches
+    if func.id in self.macro_defs:  
+      assert func.id in globals()
+      return globals()[func.id](*call.args)
+    elif func.id in default_impl.macro_defs:
+      return getattr(default_impl, func.id)(*call.args)
+    else:
       self.generic_visit(e)
       return e
-
-    if len(call.args) != 1 or len(call.keywords) != 0:
-      raise errors_warns.APIError(f"{optional_lineno(call)}{func.id} accepts exactly one non-keyword argument.")
-
-    orig_val = call.args[0]
-    var = ast.Name(id='_metap_ret')
-    asgn = ast.Assign(
-      targets=[var],
-      value=orig_val
-    )
-
-    lineno = call.lineno
-    
-    if func.id == '_ret_ifnn':
-      if_ = ast.If(
-        test=ast.Compare(left=var, ops=[ast.IsNot()],
-                        comparators=[ast.Constant(value=None)]),
-        body=[ast.Return(value=var, lineno=lineno)],
-        orelse=[]
-      )
-    else:
-      if_ = ast.If(
-        test=ast.Compare(left=var, ops=[ast.Is()],
-                        comparators=[ast.Constant(value=None)]),
-        body=[ast.Return(value=ast.Constant(value=None), lineno=lineno)],
-        orelse=[]
-      )
-      
-    return [asgn, if_]
   
-  # Verifier that we have actually changed every call
   def visit_Call(self, call: ast.Call):
     if not isinstance(call.func, ast.Name):
       self.generic_visit(call)
       return call
-    
-    funcs = ['_ret_ifn', '_ret_ifnn', '_cvar']
-    if call.func.id in funcs:
-      raise errors_warns.APIError(f"{optional_lineno(call)}Wrong usage of {call.func.id}.")
+
+    # Verify correct usage of macros and _cvar
+
+    if call.func.id in self.macro_defs:
+      raise errors_warns.APIError(f"{optional_lineno(call)}Wrong usage of {call.func.id}. Macros should be used only as statements, not inside expressions.")
+
+    if call.func.id == '_cvar':
+      raise errors_warns.APIError(f"{optional_lineno(call)}_cvar should be used inside an `if` condition.")
       
     # Handle timing
     if call.func.id == '_time_e':
@@ -1086,8 +1101,12 @@ class MetaP:
 
   # Handles anything that is required to be transformed for the code to run
   # (i.e., any code that uses metap features)
-  def compile(self):
-    transformer = NecessaryTransformer()
+  def compile(self, macro_defs_path=None):
+    macro_defs_ast = None
+    if macro_defs_path is not None:
+      macro_defs_ast = macros_gen.gen_macros(macro_defs_path)
+    # END IF #
+    transformer = NecessaryTransformer(macro_defs_ast)
     transformer.visit(self.ast)
 
   def dump(self, filename=None):

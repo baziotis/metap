@@ -288,17 +288,17 @@ def main(xs):
 
 def foo(ns):
   for n in ns:
-    _metap_ret = helper(n)
-    if _metap_ret is not None:
-      return _metap_ret
+    _tmp = helper(n)
+    if _tmp is not None:
+      return _tmp
   return None
 
 
 def main(xs):
   for x in xs:
-    _metap_ret = foo(x)
-    if _metap_ret is not None:
-      return _metap_ret
+    _tmp = foo(x)
+    if _tmp is not None:
+      return _tmp
 """
     
     out = boiler(src, just_compile)
@@ -326,16 +326,14 @@ def main(xs):
 
 def foo(ns):
   for n in ns:
-    _metap_ret = helper(n)
-    if _metap_ret is None:
+    if helper(n) is None:
       return None
   return None
 
 
 def main(xs):
   for x in xs:
-    _metap_ret = foo(x)
-    if _metap_ret is None:
+    if foo(x) is None:
       return None
 """
     
@@ -393,9 +391,9 @@ def foo(ns):
 
 def foo(ns):
   for n in ns:
-    _metap_ret = helper(n)
-    if _metap_ret is not None:
-      return metap.log_ret(_metap_ret, 'metap::Return(ln=4)')
+    _tmp = helper(n)
+    if _tmp is not None:
+      return metap.log_ret(_tmp, 'metap::Return(ln=3)')
 """
 
     out = boiler(src, compose_retif_and_logret)
