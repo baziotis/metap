@@ -283,8 +283,9 @@ class NecessaryTransformer(ast.NodeTransformer):
 
     assert isinstance(macro_defs_ast, ast.Module)
     for fdef in macro_defs_ast.body:
-      assert isinstance(fdef, ast.FunctionDef)
-      self.macro_defs.add(fdef.name)
+      if isinstance(fdef, ast.FunctionDef):
+        self.macro_defs.add(fdef.name)
+      # END IF #
     ### END FOR ###
 
     macros_src = astor.to_source(macro_defs_ast, indent_with="  ")
@@ -334,7 +335,6 @@ class NecessaryTransformer(ast.NodeTransformer):
 
     # Verify correct usage of macros and _cvar
 
-    print(call.func.id)
     if (call.func.id in self.macro_defs or
         call.func.id in default_impl.macro_defs):
       msg = f"{optional_lineno(call)}Wrong usage of {call.func.id}. Macros should be used only as statements, not inside expressions."
@@ -361,20 +361,6 @@ __metap_total_ns = __metap_end_ns - __metap_start_ns
       new_call = ast.Call(
         func=ast.Attribute(value=ast.Name(id="metap"), attr='time_exec'),
         args=[ast.Constant(value=code_to_exec), globals_call()],
-        keywords=[]
-      )
-      return new_call
-    elif call.func.id == '_mprint':
-      args = call.args
-      if len(args) != 1:
-        raise errors_warns.APIError(f"{optional_lineno(call)}_mprint accepts exactly one argument.")
-      e = ast.Expr(value=args[0])
-      arg_s = astor.to_source(e).strip()
-      print_arg0 = ast.Constant(value=f"{arg_s}:")
-      print_arg1 = args[0]
-      new_call = ast.Call(
-        func=ast.Name(id="print"),
-        args=[print_arg0, print_arg1],
         keywords=[]
       )
       return new_call

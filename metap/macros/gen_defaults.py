@@ -10,8 +10,9 @@ t = gen_lib.gen_macros(defaults_path)
 
 macro_defs = set()
 for fdef in t.body:
-  assert isinstance(fdef, ast.FunctionDef)
-  macro_defs.add(fdef.name)
+  if isinstance(fdef, ast.FunctionDef):
+    macro_defs.add(fdef.name)
+  # END IF #
 ### END FOR ###
 
 src = astor.to_source(t, indent_with=" "*2)
@@ -21,7 +22,6 @@ macro_defs = {macro_defs}
 """
 
 imports = """
-import ast
 from . import rt_lib
 
 """

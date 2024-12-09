@@ -1,3 +1,5 @@
+import ast, astor
+
 def _ret_ifn(x):
   stmt : NODE = {
 if <x> is None:
@@ -24,5 +26,14 @@ def _ret_ift(x):
   stmt : NODE = {
 if <x> == True:
   return True
+}
+  return stmt
+
+def _mprint(x):
+  e = ast.Expr(value=x)
+  src = astor.to_source(e).strip()
+  cnode = ast.Constant(value=src+":")
+  stmt : NODE = {
+print(<cnode>, <x>)
 }
   return stmt
