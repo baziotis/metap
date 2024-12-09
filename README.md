@@ -461,6 +461,16 @@ Generate valid Python code and dump it to a file.
 - `filename: str`: Optional. If not provided, `metap` will use `<original name>.metap.py`.
 
 
+### `MetaP.compile()`
+
+Compiles anything that is necessary to be handled to get valid Python. See the
+following section.
+
+**Parameters**:
+- `macro_defs_path: str`: Optional. A file that includes definitions of user-defined macros.
+
+
+
 # `metap` Superset of Python
 
 All the features we've seen up to now make running a `metap` client _optional_.
@@ -471,6 +481,9 @@ meta-programming layer truly shines. The following features form an extensible
 superset of Python, which lets you add features that allow you to automatically
 generate code.
 
+To generate a valid Python program, you just need a client that calls
+[`compile()`](#compile). `compile()` will handle everything that needs to be
+translated for the code to be valid Python (so, everything that follows).
 
 
 ## User-Defined Macros
