@@ -334,17 +334,22 @@ class NecessaryTransformer(ast.NodeTransformer):
 
     # Verify correct usage of macros and _cvar
 
-    if call.func.id in self.macro_defs:
-      raise errors_warns.APIError(f"{optional_lineno(call)}Wrong usage of {call.func.id}. Macros should be used only as statements, not inside expressions.")
+    print(call.func.id)
+    if (call.func.id in self.macro_defs or
+        call.func.id in default_impl.macro_defs):
+      msg = f"{optional_lineno(call)}Wrong usage of {call.func.id}. Macros should be used only as statements, not inside expressions."
+      raise errors_warns.APIError(msg)
 
     if call.func.id == '_cvar':
-      raise errors_warns.APIError(f"{optional_lineno(call)}_cvar should be used inside an `if` condition.")
+      msg = f"{optional_lineno(call)}_cvar should be used inside an `if` condition."
+      raise errors_warns.APIError(msg)
       
     # Handle timing
     if call.func.id == '_time_e':
       args = call.args
       if len(args) != 1:
-        raise errors_warns.APIError(f"{optional_lineno(call)}_time_e accepts exactly one argument.")
+        msg = f"{optional_lineno(call)}_time_e accepts exactly one argument."
+        raise errors_warns.APIError(msg)
       e = ast.Expr(value=args[0])
       code_to_exec = f"""
 import time
@@ -375,6 +380,7 @@ __metap_total_ns = __metap_end_ns - __metap_start_ns
       return new_call
     # END IF #
     
+    self.generic_visit(call)
     return call
 
   # _cvar
@@ -449,11 +455,6 @@ __metap_total_ns = __metap_end_ns - __metap_start_ns
     # But this is very complex, because we essentially have to implement
     # short-circuiting, which means we need different handling for `and` and
     # `or`. And in general, it needs much more gymnastics.
-    
-    # --- Alternative Solution 2 ---
-
-    # Pass a code block into a function and use `exec()`. Similar to how we
-    # handle `_time_e()`.
     
 
     new_body = []
