@@ -2,11 +2,6 @@ An easy-to-use meta-programming layer for Python.
 
 # Motivation
 
-After several thousands of lines of code written in Python, I've come across
-several language features which would make my Python programming much more
-efficient, but which will probably not appear in standard Python any time soon.
-So, I finally decided to implement a tool that allows me to have these features.
-
 `metap` is an easy-to-use meta-programming layer for Python. It allows you to
 write programs that generate programs. That sounds fancy, but in practice
 `metap` just automates tedious program transformations and programming patterns.
@@ -468,66 +463,134 @@ Generate valid Python code and dump it to a file.
 
 # `metap` Superset of Python
 
-All the features we've seen up to now make running a `metap` client _optional_. In other words, you could just run the `test_mp.py` programs without using a client at all.
+All the features we've seen up to now make running a `metap` client _optional_.
+In other words, you could just run the `test_mp.py` programs without using a
+client at all. However, these features complement an existing program, but they
+don't make writing the program in the first place any easier. This is where a
+meta-programming layer truly shines. The following features form an extensible
+superset of Python, which lets you add features that allow you to automatically
+generate code.
 
-All the following features extend the Python programming language so using a
-`metap` client is mandatory. All these features are handled by
-`MetaP.compile()`. So, all the clients in all the following examples are simply:
 
-```python
-import metap
 
-mp = metap.MetaP(filename='test_mp.py')
-mp.compile()
-mp.dump('test.py')
-```
+## User-Defined Macros
 
-### `_ret_ifnn()` and `_ret_ifn()`
+`metap` automates domain-specific, or even user-specific patterns. To allow
+that, it should allow users to define their own patterns. Currently, this is
+done with macros, which can be user-defined.
 
-**Parameters**:
-- `e`: Any expression.
+The basic idea for macros is that to treat code as values that e.g., can be
+returned or be combined with other values. In practice, a macro definition
+returns a piece of code. To use the macro, we just call it as a function and the
+code that the macro returns takes the place of the macro call.
 
-We introduce two new statements that return only under a condition. By far the
-two most common conditions I've used in practice are: (1) return `x` if `x` is
-not `None` and (2) return `None` if `x` is `None`. Both can be expressed simply
-with:
-
-**Example**
+Here's an example of a macro definition in a file `macro_defs.py`:
 
 ```python
-# test_mp.py
-
-# Return None if `x` is None
-_ret_ifn(x)
-# Return `x` if `x` is not None
-_ret_ifnn(x)
+# macro_defs.py
+def _ret_ifnn(x):
+  stmt : NODE = {
+_tmp = <x>
+if _tmp is not None:
+  return _tmp
+}
+  return stmt
 ```
 
-The generated `test.py` is equivalent to:
+Then, we can use this macro as follows:
 
 ```python
-if x is None:
-  return None
-if x is not None:
-  return x
+def foo(x):
+  _ret_ifnn(bar(x))
 ```
 
-**Usage notes**:
+Using a simple client and `mp.compile(macro_defs_path='macro_defs.py')`, we get:
 
-You can use these statements wherever you'd use a return statement. Note that it
-_looks_ like a function call but you should think of it as a statement. For
-example, the following will _not_ compile:
+```python
+def foo(x):
+  _tmp = bar(x)
+  if _tmp is not None:
+    return _tmp
+```
+
+The only thing to be careful about is that these macros can be used where a
+**statement** (e.g., a `return`, an `if`, but not a function argument, or an
+expression `2+3`) can be used. For example, the following will give you an
+error:
 
 ```python
 foo(_ret_ifn(x))
 ```
 
-Also, note that you can compose this feature with logging returns. For example, you
-can issue `mp.compile()`, which will create the `if-return`, and then use
-`mp.log_returns()` which will log the generated returns (but using the line
-numbers of the original call).
+Finally, note that you can compose macros with other `MetaP` methods. For
+example, you can issue `mp.compile()`, which will create the `if-return`, and
+then use `mp.log_returns()` which will log the generated returns (but using the
+line numbers of the original call).
 
-### `cvar()`
+The following subsections describe some macros defined by default.
+
+### Conditional Returns
+
+`metap` currently supports 4 kinds of conditional returns
+
+```python
+# Return None if `x` is None
+def _ret_ifn(x):
+  stmt : NODE = {
+if <x> is None:
+  return None
+}
+  return stmt
+
+# Return `x` if `x` is not None
+def _ret_ifnn(x):
+  stmt : NODE = {
+_tmp = <x>
+if _tmp is not None:
+  return _tmp
+}
+  return stmt
+
+# Return False if `x` is False
+def _ret_iff(x):
+  stmt : NODE = {
+if <x> == False:
+  return False
+}
+  return stmt
+
+# Return True if `x` is True
+def _ret_ift(x):
+  stmt : NODE = {
+if <x> == True:
+  return True
+}
+  return stmt
+```
+
+### Printing
+
+`metap` supports `_mprint(e)`, which gets an expression `e` as input and prints
+both the expression's text and its value. For example this:
+
+```python
+def foo():
+  return 2
+x = 3
+_mprint(x)
+_mprint(foo())
+```
+
+will print:
+
+```
+x: 3
+foo(): 2
+```
+
+## Other built-in features
+
+### Assignments in Conditions - `cvar()`
 
 **Example**
 
@@ -555,7 +618,7 @@ if (c = line.startswith("# "))
 
 Currently `_cvar()` works only in `if-elif` conditions.
 
-### `time_e()`
+### Time expressions - `time_e()`
 
 Time expression.
 
@@ -570,40 +633,6 @@ res, ns = _time_e(2 + 3)
 ```
 
 `res` gets `5` and `ns` gets the timing in nanoseconds.
-
-
-### `_mprint()`
-
-Print the expression source along with the expression value.
-
-**Parameters**:
-- `e`: Any expression
-
-
-**Example**:
-
-```
-a = 2
-_mprint(a)
-```
-
-Prints `a: 2`.
-
-# Design Choices
-
-It may seem that it would be better to extend the language, as this e.g., would
-allow us to add custom `return` statements that accept a condition, instead of
-using call-like syntax with `_ret_ifn()`. However, this option has serious
-drawbacks. First, it's a [hefty
-task](https://aroberge.github.io/ideas/docs/html/#ideas-making-it-easier-to-extend-python-s-syntax).
-But most importantly, it would be hard to reuse the work across environments,
-machines, etc., because one would have to have my custom version of Python
-everywhere.
-
-On the other hand, meta-programming is portable, easy to reason about (because
-you can always see the generated Python code), and opt-in (because you can
-choose not to use the `metap` superset of Python).
-
 
 # Status
 
