@@ -154,11 +154,14 @@ Table of Contents:
   - [`dyn_typecheck()`](#metapdyn_typecheck)
   - [`expand_asserts()`](#metapexpand_asserts)
   - [`dump()`](#metapdump)
+  - [`compile()`](#metapcompile)
 - [`metap` superset of Python](#metap-superset-of-python)
-  - [`_ret_ifnn()` and `_ret_ifn()`](#_ret_ifnn-and-_ret_ifn)
-  - [`cvar()`](#cvar)
-  - [`time_e()`](#time_e)
-  - [`_mprint()`](#_mprint)
+  - [User-Defined Macros](#user-defined-macros)
+    - [Conditional Returns](#conditional-returns)
+    - [Printing](#printing)
+  - [Other built-in features](#other-built-in-features)
+    - [`cvar()`](#cvar)
+    - [`time_e()`](#time_e)
 
 
 # Client API
@@ -482,7 +485,7 @@ superset of Python, which lets you add features that allow you to automatically
 generate code.
 
 To generate a valid Python program, you just need a client that calls
-[`compile()`](#compile). `compile()` will handle everything that needs to be
+[`compile()`](#metapcompile). `compile()` will handle everything that needs to be
 translated for the code to be valid Python (so, everything that follows).
 
 
