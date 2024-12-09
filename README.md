@@ -160,8 +160,8 @@ Table of Contents:
     - [Conditional Returns](#conditional-returns)
     - [Printing](#printing)
   - [Other built-in features](#other-built-in-features)
-    - [`cvar()`](#cvar)
-    - [`time_e()`](#time_e)
+    - [`cvar()`](#assignments-in-conditions---cvar)
+    - [`time_e()`](#time-expressions---time_e)
 
 
 # Client API
