@@ -31,3 +31,8 @@ Repository = "https://github.com/baziotis/metap"
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning:astor.op_util:92"
+]
