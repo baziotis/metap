@@ -65,9 +65,7 @@ def log_start_end(started_print, val, finished_print):
 
 def fmt_log_info(log_info):
   res = "metap::"
-  special_keys = ["name", "fname"]
-  if "fname" in log_info:
-    res += log_info["fname"] + "::"
+  special_keys = ["name"]
   
   main = ",".join([f"{key}={value}" for key,
                   value in log_info.items() if key not in special_keys])
@@ -91,10 +89,8 @@ def in_range(lineno, range):
 
 
 class LogReturnWalker(astor.TreeWalk):
-  def __init__(self, include_fname=False, fname="", range=[]):
+  def __init__(self, range=[]):
     astor.TreeWalk.__init__(self)
-    self.stef_include_fname = include_fname
-    self.stef_fname = fname
     self.stef_range = range
 
   def post_Return(self):
@@ -106,9 +102,6 @@ class LogReturnWalker(astor.TreeWalk):
           
     log_info = {"name": "Return"}
     log_info["ln"] = lineno
-
-    if self.stef_include_fname:
-      log_info["fname"] = self.stef_fname
 
     out_log = fmt_log_info(log_info)
 
@@ -1037,10 +1030,8 @@ class MetaP:
     
     self.log_se_called = False
 
-  def log_returns(self, include_fname=False, range=[]):
-    walker = LogReturnWalker(include_fname=include_fname,
-                             fname=os.path.basename(self.filename),
-                             range=range)
+  def log_returns(self, range=[]):
+    walker = LogReturnWalker(range=range)
     walker.walk(self.ast)
 
   def log_breaks(self, range=[]):

@@ -175,7 +175,6 @@ The whole API is under the `MetaP` class. Fields:
 ### `MetaP.log_returns()`
 
 **Parameters**:
-- `include_fname: str`: Optional. Include the filename in the logs
 - `range: List[Union[int, Tuple[int, int]]]`: Optional. Only log returns within the line
   ranges provided. `range` gets a list that can have either integers (denoting a
   single line), or a pair of integers (denoting a `[from, to]` range). 
