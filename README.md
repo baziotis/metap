@@ -607,14 +607,11 @@ foo(): 2
 
 ### Assignments in Conditions - `cvar()`
 
-**Example**
+**Example**:
 
-See [Quickstart](#quickstart).
-
-**Example 2**:
-
-I'll present a slight variation of `_cvar`, where the variable takes the value
-of the condition, no matter whether it's true or false.
+We saw one example in [Quickstart](#quickstart). Here I'll present a slight
+variation of `_cvar`, where the variable takes the value of the condition, no
+matter whether it's true or false.
 
 ```python
 if _cvar(line.startswith('# '), c):
