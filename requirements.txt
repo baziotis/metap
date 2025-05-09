@@ -1,0 +1,5 @@
+astor @ git+https://github.com/baziotis/astor@f280cea6763f5255fa6417c8143164fe6023d127
+iniconfig==2.1.0
+packaging==25.0
+pluggy==1.5.0
+pytest==8.3.5

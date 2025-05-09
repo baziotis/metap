@@ -712,7 +712,7 @@ def exp_for_ann(obj, ann, id_curr):
     el_ty = exp_for_ann(iter_el, slice, id_curr)
     list_comp = ast.ListComp(
       elt=el_ty,
-      generators=[ast.comprehension(target=iter_el, iter=obj, ifs=[])]
+      generators=[ast.comprehension(target=iter_el, iter=obj, ifs=[], is_async=False)]
     )
     all_call = ast.Call(
       func=ast.Name(id='all'),
@@ -744,7 +744,7 @@ def exp_for_ann(obj, ann, id_curr):
     )
     list_comp = ast.ListComp(
       elt=and_,
-      generators=[ast.comprehension(target=iter, iter=items, ifs=[])]
+      generators=[ast.comprehension(target=iter, iter=items, ifs=[], is_async=False)]
     )
     all_call = ast.Call(
       func=ast.Name(id='all'),
