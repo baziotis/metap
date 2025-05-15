@@ -297,6 +297,31 @@ foo()
 
   assert actual == expected
   del mod
+  
+
+def test_cvar_only_call_if_true():
+  mprogram = """
+x = 0
+
+def mod_x():
+  global x
+  x = 2
+
+def foo(y):
+  dummy = False
+  if _cvar(y, dummy, mod_x()):
+    pass
+
+foo(False)
+"""
+
+  mod = boiler(mprogram, CVAR_CLIENT)
+
+  actual = mod.__dict__['x']
+  expected = 0
+
+  assert actual == expected
+  del mod
 
 
 def test_cvar_def():

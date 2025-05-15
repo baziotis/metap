@@ -23,9 +23,9 @@ def log_call(lam, log_info):
   print(log_info)
   return lam()
 
-def cvar(cond, globs, var, ift_e):
+def cvar(cond, globs, var, ift_e_lam):
   if cond:
-    globs[var] = ift_e
+    globs[var] = ift_e_lam()
   return cond
 
 def cvar2(cond, globs, var):
@@ -252,10 +252,23 @@ class CVarTransformer(ast.NodeTransformer):
 
     if len(args) == 3:
       self.if_vars.append(var.id)
-      ift_e = args[2] if len(args) == 3 else cond
+      ift_e = args[2]
+      # No arguments
+      lambda_args = ast.arguments(
+        args=[],
+        defaults=[],
+        kw_defaults=[],
+        kwarg=None,
+        kwonlyargs=[],
+        posonlyargs=[],
+        vararg=None
+      )
+      wrapped_in_lambda = \
+        ast.Lambda(args=lambda_args, 
+                   body=ift_e)
       new_call = ast.Call(
           func=ast.Attribute(value=ast.Name(id="metap"), attr='cvar'),
-          args=[cond, globals_call(), our_name, ift_e],
+          args=[cond, globals_call(), our_name, wrapped_in_lambda],
           keywords=[]
         )
     else:
