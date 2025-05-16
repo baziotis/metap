@@ -1,11 +1,10 @@
 import ast, astor
-import os
+import sys
 from contextlib import contextmanager
 import copy
 import re
 import warnings
 from typing import Dict, List, Optional
-import pprint
 
 from .macros import gen_lib as macros_gen
 from .macros import rt_lib
@@ -60,8 +59,7 @@ def log_start_end(started_print, val, finished_print):
   assert finished_print is None
   return val
 
-
-### END HELPERS ###
+### END HELPERS #
 
 def fmt_log_info(log_info):
   res = "metap::"
@@ -280,6 +278,48 @@ class CVarTransformer(ast.NodeTransformer):
         )
     return new_call
 
+
+def not_exists_directive(root, dir_ln, node_type):
+  node_name = node_type.__name__.lower()
+  dir_name = f"_no_{node_name}"
+  # TODO: If we have a nested loop, if the outer loop has a _no_continue(), even
+  # if the continue is in the inner loop, we'll still get an error. This is
+  # probably not the desired behavior.
+  for n in ast.walk(root):
+    if isinstance(n, node_type):
+      print(f"metap: Error: {dir_name}() directive used at line {dir_ln}, but there's a `{node_name}` at line: {n.lineno}", file=sys.stderr)
+    # END IF #
+  ### END FOR ###
+
+def structural_introspection(loop):
+  directives = {"_no_continue": -1, "_no_break": -1}
+
+  body = loop.body
+  for stmt in body:
+    if not isinstance(stmt, ast.Expr):
+      break
+    call = stmt.value
+    if not isinstance(call, ast.Call):
+      break
+    if len(call.args) != 0 or len(call.keywords) != 0:
+      break
+    func = call.func
+    if not isinstance(func, ast.Name):
+      break
+    if func.id not in directives:
+      break
+    directives[func.id] = call.lineno
+  ### END FOR ###
+  
+  # Check the directives
+  _no_continue_ln = directives["_no_continue"]
+  _no_break_ln = directives["_no_break"]
+  if _no_continue_ln != -1:
+    not_exists_directive(loop, _no_continue_ln, ast.Continue)
+  if _no_break_ln != -1:
+    not_exists_directive(loop, _no_break_ln, ast.Break)
+  # END IF #
+
 class NecessaryTransformer(ast.NodeTransformer):
   def __init__(self, macro_defs_ast=None):
     ast.NodeTransformer.__init__(self)
@@ -309,6 +349,24 @@ class NecessaryTransformer(ast.NodeTransformer):
   def __exit__(self, exc_type, exc_value, traceback):
     # TODO:Delete the file here.
     pass
+
+  # We won't change the node, but since we're anyway visiting the tree, we can
+  # perform the necessary checks here.
+
+  # Visit the first couple of statements in the loop to check if there are
+  # structural introspection directives.
+
+  def visit_For(self, for_):
+    structural_introspection(for_)
+    # generic_visit() to visit the children but not the node itself, so that we
+    # don't get into infinite recursion.
+    self.generic_visit(for_)
+    return for_
+
+  def visit_While(self, whil):
+    structural_introspection(whil)
+    self.generic_visit(whil)
+    return whil
 
   # Handle macros
   def visit_Expr(self, e):

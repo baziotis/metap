@@ -1,6 +1,8 @@
 import unittest
 import metap
 import os
+import sys
+from io import StringIO
 
 from common import *
 
@@ -54,6 +56,29 @@ def log_calls_start_end3(fname):
   mp = metap.MetaP(filename=fname)
   mp.log_calls_start_end()
   mp.dump()
+
+class CaptureStderr(list):
+  def __enter__(self):
+    self.save_stderr = sys.stderr
+    sys.stderr = self._stringio = StringIO()
+    return self
+  def __exit__(self, *args):
+    self.extend(self._stringio.getvalue())
+    del self._stringio
+    sys.stderr = self.save_stderr
+
+def struct_introspect(fname):
+  # Set stderr to our own variable so that can capture it.
+  save_stderr = sys.stderr
+  sys.stderr = _stringio = StringIO()
+  
+  mp = metap.MetaP(filename=fname)
+  mp.compile()
+  mp.dump()
+
+  # Reset stderr
+  sys.stderr = save_stderr
+  return _stringio.getvalue()
 
 def typedef_boiler(src, typedefs):
   mp_fname = 'test_mp.py'
@@ -1430,6 +1455,114 @@ if not isinstance(_metap_obj, float):
 
     out = boiler(src, expand_asserts)
     self.assertEqual(out, expect)
+
+
+class StructuralIntrospection(unittest.TestCase):
+  def test_simple_no_continue(self):
+    src = \
+"""
+while i < 10:
+  _no_continue()
+
+  if i > 2:
+    continue
+"""
+
+    expected_stderr = "metap: Error: _no_continue() directive used at line 3, but there's a `continue` at line: 6"
+
+    stderr = boiler2(src, struct_introspect)
+    self.assertEqual(stderr.strip(), expected_stderr.strip())
+
+  def test_simple_no_continue2(self):
+    src = \
+"""
+for i in range(10):
+  _no_continue()
+
+  if i > 2:
+    continue
+"""
+
+    expected_stderr = "metap: Error: _no_continue() directive used at line 3, but there's a `continue` at line: 6"
+
+    stderr = boiler2(src, struct_introspect)
+    self.assertEqual(stderr.strip(), expected_stderr.strip())
+
+
+
+  def test_simple_no_break(self):
+    src = \
+"""
+for i in range(10):
+  _no_break()
+
+  with A() as a:
+    break
+"""
+
+    expected_stderr = "metap: Error: _no_break() directive used at line 3, but there's a `break` at line: 6"
+
+    stderr = boiler2(src, struct_introspect)
+    self.assertEqual(stderr.strip(), expected_stderr.strip())
+
+
+  def test_simple_no_break2(self):
+    src = \
+"""
+while i < 10:
+  _no_break()
+
+  with A() as a:
+    break
+"""
+
+    expected_stderr = "metap: Error: _no_break() directive used at line 3, but there's a `break` at line: 6"
+
+    stderr = boiler2(src, struct_introspect)
+    self.assertEqual(stderr.strip(), expected_stderr.strip())
+
+
+
+
+  def test_inner_loop(self):
+    src = \
+"""
+for i in range(10):
+  _no_break()
+
+  while j > 10:
+    break
+"""
+
+    expected_stderr = "metap: Error: _no_break() directive used at line 3, but there's a `break` at line: 6"
+
+    stderr = boiler2(src, struct_introspect)
+    self.assertEqual(stderr.strip(), expected_stderr.strip())
+
+
+
+  def test_mult_directives(self):
+    src = \
+"""
+for i in range(10):
+  _no_continue()
+  _no_break()
+
+  if a:
+    break
+  
+  continue
+"""
+
+    expected_stderr = \
+"""
+metap: Error: _no_continue() directive used at line 3, but there's a `continue` at line: 9
+metap: Error: _no_break() directive used at line 4, but there's a `break` at line: 7
+"""
+
+    stderr = boiler2(src, struct_introspect)
+    self.assertEqual(stderr.strip(), expected_stderr.strip())
+
 
 if __name__ == '__main__':
     unittest.main()
