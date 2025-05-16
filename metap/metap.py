@@ -281,39 +281,34 @@ class CVarTransformer(ast.NodeTransformer):
 
 def not_exists_directive(root, dir_ln, node_type):
   node_name = node_type.__name__.lower()
-  dir_name = f"_no_{node_name}"
+  dir_name = f"@no_{node_name}"
   # TODO: If we have a nested loop, if the outer loop has a _no_continue(), even
   # if the continue is in the inner loop, we'll still get an error. This is
   # probably not the desired behavior.
   for n in ast.walk(root):
     if isinstance(n, node_type):
-      print(f"metap: Error: {dir_name}() directive used at line {dir_ln}, but there's a `{node_name}` at line: {n.lineno}", file=sys.stderr)
+      print(f"metap: Error: {dir_name} directive used at line {dir_ln}, but there's a `{node_name}` at line: {n.lineno}", file=sys.stderr)
     # END IF #
   ### END FOR ###
 
 def structural_introspection(loop):
-  directives = {"_no_continue": -1, "_no_break": -1}
+  directives = {"__metap_no_continue": -1, "__metap_no_break": -1}
 
   body = loop.body
   for stmt in body:
     if not isinstance(stmt, ast.Expr):
       break
-    call = stmt.value
-    if not isinstance(call, ast.Call):
+    name = stmt.value
+    if not isinstance(name, ast.Name):
       break
-    if len(call.args) != 0 or len(call.keywords) != 0:
+    if name.id not in directives:
       break
-    func = call.func
-    if not isinstance(func, ast.Name):
-      break
-    if func.id not in directives:
-      break
-    directives[func.id] = call.lineno
+    directives[name.id] = name.lineno
   ### END FOR ###
   
   # Check the directives
-  _no_continue_ln = directives["_no_continue"]
-  _no_break_ln = directives["_no_break"]
+  _no_continue_ln = directives["__metap_no_continue"]
+  _no_break_ln = directives["__metap_no_break"]
   if _no_continue_ln != -1:
     not_exists_directive(loop, _no_continue_ln, ast.Continue)
   if _no_break_ln != -1:
@@ -1097,7 +1092,20 @@ class MetaP:
   def __init__(self, filename) -> None:
     self.filename = filename
     with open(filename, 'r') as fp:
-      self.ast = ast.parse(fp.read())
+      contents = fp.read()
+
+    # TODO: This needs to be in the same place as the other array with
+    # directives.
+    directive_replacements = {
+      "@no_continue": "__metap_no_continue",
+      "@no_break": "__metap_no_break"
+    }
+    # First replace the directives
+    for old, new in directive_replacements.items():
+      contents = contents.replace(old, new)
+    ### END FOR ###
+
+    self.ast = ast.parse(contents)
     
     self.log_se_called = False
 

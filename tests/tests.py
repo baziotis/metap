@@ -1462,13 +1462,13 @@ class StructuralIntrospection(unittest.TestCase):
     src = \
 """
 while i < 10:
-  _no_continue()
+  @no_continue
 
   if i > 2:
     continue
 """
 
-    expected_stderr = "metap: Error: _no_continue() directive used at line 3, but there's a `continue` at line: 6"
+    expected_stderr = "metap: Error: @no_continue directive used at line 3, but there's a `continue` at line: 6"
 
     stderr = boiler2(src, struct_introspect)
     self.assertEqual(stderr.strip(), expected_stderr.strip())
@@ -1477,13 +1477,13 @@ while i < 10:
     src = \
 """
 for i in range(10):
-  _no_continue()
+  @no_continue
 
   if i > 2:
     continue
 """
 
-    expected_stderr = "metap: Error: _no_continue() directive used at line 3, but there's a `continue` at line: 6"
+    expected_stderr = "metap: Error: @no_continue directive used at line 3, but there's a `continue` at line: 6"
 
     stderr = boiler2(src, struct_introspect)
     self.assertEqual(stderr.strip(), expected_stderr.strip())
@@ -1494,13 +1494,13 @@ for i in range(10):
     src = \
 """
 for i in range(10):
-  _no_break()
+  @no_break
 
   with A() as a:
     break
 """
 
-    expected_stderr = "metap: Error: _no_break() directive used at line 3, but there's a `break` at line: 6"
+    expected_stderr = "metap: Error: @no_break directive used at line 3, but there's a `break` at line: 6"
 
     stderr = boiler2(src, struct_introspect)
     self.assertEqual(stderr.strip(), expected_stderr.strip())
@@ -1510,13 +1510,13 @@ for i in range(10):
     src = \
 """
 while i < 10:
-  _no_break()
+  @no_break
 
   with A() as a:
     break
 """
 
-    expected_stderr = "metap: Error: _no_break() directive used at line 3, but there's a `break` at line: 6"
+    expected_stderr = "metap: Error: @no_break directive used at line 3, but there's a `break` at line: 6"
 
     stderr = boiler2(src, struct_introspect)
     self.assertEqual(stderr.strip(), expected_stderr.strip())
@@ -1528,13 +1528,13 @@ while i < 10:
     src = \
 """
 for i in range(10):
-  _no_break()
+  @no_break
 
   while j > 10:
     break
 """
 
-    expected_stderr = "metap: Error: _no_break() directive used at line 3, but there's a `break` at line: 6"
+    expected_stderr = "metap: Error: @no_break directive used at line 3, but there's a `break` at line: 6"
 
     stderr = boiler2(src, struct_introspect)
     self.assertEqual(stderr.strip(), expected_stderr.strip())
@@ -1545,8 +1545,8 @@ for i in range(10):
     src = \
 """
 for i in range(10):
-  _no_continue()
-  _no_break()
+  @no_continue
+  @no_break
 
   if a:
     break
@@ -1556,8 +1556,8 @@ for i in range(10):
 
     expected_stderr = \
 """
-metap: Error: _no_continue() directive used at line 3, but there's a `continue` at line: 9
-metap: Error: _no_break() directive used at line 4, but there's a `break` at line: 7
+metap: Error: @no_continue directive used at line 3, but there's a `continue` at line: 9
+metap: Error: @no_break directive used at line 4, but there's a `break` at line: 7
 """
 
     stderr = boiler2(src, struct_introspect)
