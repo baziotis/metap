@@ -6,6 +6,8 @@ An easy-to-use meta-programming layer for Python.
 write programs that generate programs. That sounds fancy, but in practice
 `metap` just automates tedious program transformations and programming patterns.
 
+Blog post: https://sbaziotis.com/compilers/metap.html
+
 # Installation
 
 First (because `metap` needs a bug-fixed version of `astor`):
